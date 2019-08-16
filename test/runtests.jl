@@ -76,3 +76,22 @@ head = NonlinearEquations.newton(x->diffusion_residuals(x, p, n), x->diffusion_j
 dx2 = (1 / (n + 1)) ^ 2
 otherhead = SparseArrays.spdiagm(-1=>-p[2:n] / dx2, 0=>(p[1:n] + p[2:n + 1]) / dx2, 1=>-p[2:n] / dx2) \ [[p[1] / dx2]; zeros(n - 1)]
 @test head ≈ otherhead
+
+
+#formulate the boundary value problem u''(x)=u^2-sin^2(x)-sin(x) with u(0)=0 and u(1)=0, which has u(x)=sin(x) as a solution on the interval [0, π]
+@NonlinearEquations.equations function nonlinearbvp(u, p, n)
+	NonlinearEquations.setnumequations(n)
+	dx2 = (pi / (n + 1)) ^ 2
+	xs = range(0, pi; length=n + 2)[2:end - 1]
+	NonlinearEquations.addterm(1, -(2 * u[1] - u[2] - 0) / dx2 - u[1] ^ 2 + sin(xs[1]) ^ 2 + sin(xs[1]))
+	for eqnum = 2:n - 1
+		NonlinearEquations.addterm(eqnum, -(2 * u[eqnum] - u[eqnum - 1] - u[eqnum + 1]) / dx2 - u[eqnum] ^ 2 + sin(xs[eqnum]) ^ 2 + sin(xs[eqnum]))
+	end
+	NonlinearEquations.addterm(n, -(2 * u[n] - u[n - 1] - 0 * sin(1)) / dx2 - u[n] ^ 2 + sin(xs[n]) ^ 2 + sin(xs[n]))
+end
+#now solve the boundary value problem
+n = 10 ^ 4
+p = []
+u = NonlinearEquations.newton(x->nonlinearbvp_residuals(x, p, n), x->nonlinearbvp_jacobian(x, p, n), zeros(n); numiters=100)
+u_analytical = map(x->sin(x), collect(range(0, pi; length=n + 2))[2:end - 1])
+@test u ≈ u_analytical

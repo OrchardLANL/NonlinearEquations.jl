@@ -58,7 +58,7 @@ macro equations(fundef)
 			J = Int[]
 			V = Float64[]
 			$body_jacobian
-			return SparseArrays.sparse(I, J, V, numequations, length(x), +)
+			return SparseArrays.sparse(I, J, V, numequations, length($xsym), +)
 		end
 	end
 	#=
