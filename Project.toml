@@ -1,0 +1,9 @@
+name = "NonlinearEquations"
+uuid = "dcda4a48-b9f7-11e9-2d4a-7da573938c24"
+authors = ["Daniel O'Malley <omalled@lanl.gov>"]
+version = "0.1.0"
+
+[deps]
+Calculus = "49dc2e85-a5d0-5ad3-a950-438e2897f1b9"
+MacroTools = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
