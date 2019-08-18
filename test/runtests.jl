@@ -14,9 +14,9 @@ exold = NonlinearEquations.replacesymswithrefs(ex, d)
 ex = :(p[1] * x[1] ^ 2 + p[2] * x[2 * y + f(z)] + p[3])
 diffs, refs = NonlinearEquations.differentiatewithrefs(ex, :x)
 for i = 1:2
-	if refs[i] == :(2 * y + f(z))
+	if refs[i] == [:(2 * y + f(z))]
 		@test diffs[i] == :(p[2])
-	elseif refs[i] == :(1)
+	elseif refs[i] == [:(1)]
 		@test diffs[i] == :(p[1] * (2 * x[1]))
 	else
 		error("the refs are bad")

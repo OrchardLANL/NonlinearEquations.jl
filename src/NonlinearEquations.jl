@@ -12,12 +12,17 @@ end
 
 function codegen_addterm_jacobian(equationnum, term, xsym)
 	derivatives, refs = NonlinearEquations.differentiatewithrefs(term, xsym)
-	refs = map(ref->replaceall(ref, :end, :(length($xsym))), refs)
+	for ref in refs
+		if length(ref) != 1
+			error("must be a reference with a single index")
+		end
+	end
+	refs = map(ref->replaceall(ref[1], :end, :(length($xsym))), refs)
 	q = quote end
 	for (derivative, ref) in zip(derivatives, refs)
 		newcode = quote
 			push!(I, $equationnum)
-			push!(J, $ref)
+			push!(J, $(ref))
 			push!(V, $(derivative))
 		end
 		append!(q.args, newcode.args)
@@ -42,6 +47,7 @@ end
 
 macro equations(fundef)
 	@MacroTools.capture(fundef, function funsym_(xsym_, psym_, args__) body_ end) || error("unsupported function definition")
+	body = macroexpand(Main, body)
 	body_residuals = MacroTools.postwalk(x->replacenumequations(x, :(residuals = zeros(numequations))), body)
 	body_residuals = MacroTools.postwalk(x->replaceaddterm(x, codegen_addterm_residuals), body_residuals)
 	q_residuals = quote
@@ -93,7 +99,7 @@ end
 function replacerefswithsyms(expr)
 	sym2symandref = Dict()
 	function replaceref(expr)
-		@MacroTools.capture(expr, x_[y_]) || return expr
+		@MacroTools.capture(expr, x_[y__]) || return expr
 		sym = gensym()
 		sym2symandref[sym] = (x, y)
 		return sym
@@ -119,7 +125,7 @@ function replacesymswithrefs(expr, sym2symandref)
 	function replacesym(expr)
 		if expr isa Symbol && haskey(sym2symandref, expr)
 			sym, ref = sym2symandref[expr]
-			return :($sym[$ref])
+			return :($sym[$(ref...)])
 		else
 			return expr
 		end
