@@ -77,6 +77,13 @@ macro equations(fundef)
 	end
 end
 
+function escapesymbols(expr, symbols)
+	for symbol in symbols
+		expr = NonlinearEquations.replaceall(expr, symbol, Expr(:escape, symbol))
+	end
+	return expr
+end
+
 function newton(residuals, jacobian, x0; numiters=10, solver=(J, r)->J \ r)
 	x = x0
 	for i = 1:numiters
@@ -104,7 +111,7 @@ function replacerefswithsyms(expr)
 		sym2symandref[sym] = (x, y)
 		return sym
 	end
-	newexpr = MacroTools.postwalk(replaceref, expr)
+	newexpr = MacroTools.prewalk(replaceref, expr)
 	return newexpr, sym2symandref
 end
 
