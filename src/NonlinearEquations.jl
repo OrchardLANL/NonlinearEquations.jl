@@ -155,4 +155,11 @@ function replacesymswithrefs(expr, sym2symandref)
 	return MacroTools.postwalk(replacesym, expr)
 end
 
+function updateentries!(dest::SparseArrays.SparseMatrixCSC, src::SparseArrays.SparseMatrixCSC)
+	if dest.colptr != src.colptr || dest.rowval != src.rowval
+		error("Cannot update entries unless the two matrices have the same pattern of nonzeros")
+	end
+	copy!(dest.nzval, src.nzval)
+end
+
 end

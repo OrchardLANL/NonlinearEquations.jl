@@ -4,13 +4,6 @@ import NonlinearEquations
 import Random
 import SparseArrays
 
-function updateentries!(dest::SparseArrays.SparseMatrixCSC, src::SparseArrays.SparseMatrixCSC)
-	if dest.colptr != src.colptr || dest.rowval != src.rowval
-		error("Cannot update entries unless the two matrices have the same pattern of nonzeros")
-	end
-	copy!(dest.nzval, src.nzval)
-end
-
 function kr(psi, alpha, N)
 	if psi < 0
 		m = (N - 1) / N
@@ -47,11 +40,6 @@ end
 macro hm(x, y)
 	q = :(2.0 / (1 / $(esc(x)) + 1 / $(esc(y))))
 	return NonlinearEquations.escapesymbols(q, [:/ :+])
-	#=
-	q = :(2.0 / (1 / $x + 1 / $y))
-	@show q
-	return :($esc(q))
-	=#
 end
 
 Random.seed!(0)
@@ -95,12 +83,10 @@ end
 
 function callback(psi, residuals, J, i, saturation=saturation(psi, coords))
 	if mod(i, 10) == 0
-		@show i
 		fig, axs = PyPlot.subplots(2, 3, figsize=(20, 9))
 		psi = reshape(psi, ns[2], ns[1])
 		saturation = reshape(saturation, ns[2], ns[1])
 		residuals = reshape(residuals, ns[2], ns[1])
-		@show size(psi), extrema(psi)
 		img = axs[1].imshow(map(x->x > 0 ? x : 0, psi), origin="lower", interpolation="nearest", extent=[mins[1], maxs[1], mins[2], maxs[2]])
 		fig.colorbar(img, ax=axs[1])
 		img = axs[2].imshow(saturation, origin="lower", interpolation="nearest", extent=[mins[1], maxs[1], mins[2], maxs[2]])
@@ -117,23 +103,3 @@ function callback(psi, residuals, J, i, saturation=saturation(psi, coords))
 		PyPlot.close(fig)
 	end
 end
-
-function plotgraph(neighbors, coords, Ks)
-	fig, ax = PyPlot.subplots()
-	ax.plot(coords[1, :], coords[2, :], "k.", ms=20)
-	cmap = PyPlot.ColorMap("cool")
-	minK, maxK = extrema(Ks)
-	for (k, (i, j)) in enumerate(neighbors)
-		ax.plot(coords[1, [i, j]], coords[2, [i, j]], alpha=0.5, color=cmap((Ks[k] - minK) / (maxK - minK)))
-	end
-	display(fig)
-	println()
-	println()
-	PyPlot.close(fig)
-end
-
-function krmat(psi, sym)
-	return kr(psi, params[sym][2:3]...)
-end
-krclay(psi) = krmat(psi, :clay)
-krclaysilt(psi) = krmat(psi, :claysilt)
