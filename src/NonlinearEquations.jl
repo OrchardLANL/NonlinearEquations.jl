@@ -11,23 +11,27 @@ function codegen_addterm_residuals(equationnum, term)
 end
 
 function codegen_addterm_jacobian(equationnum, term, xsym)
-	derivatives, refs = NonlinearEquations.differentiatewithrefs(term, xsym)
-	for ref in refs
-		if length(ref) != 1
-			error("must be a reference with a single index")
+	if MacroTools.inexpr(term, xsym)
+		derivatives, refs = NonlinearEquations.differentiatewithrefs(term, xsym)
+		for ref in refs
+			if length(ref) != 1
+				error("must be a reference with a single index")
+			end
 		end
-	end
-	refs = map(ref->replaceall(ref[1], :end, :(length($xsym))), refs)
-	q = quote end
-	for (derivative, ref) in zip(derivatives, refs)
-		newcode = quote
-			push!(I, $equationnum)
-			push!(J, $(ref))
-			push!(V, $(derivative))
+		refs = map(ref->replaceall(ref[1], :end, :(length($xsym))), refs)
+		q = quote end
+		for (derivative, ref) in zip(derivatives, refs)
+			newcode = quote
+				push!(I, $equationnum)
+				push!(J, $(ref))
+				push!(V, $(derivative))
+			end
+			append!(q.args, newcode.args)
 		end
-		append!(q.args, newcode.args)
+		return q
+	else
+		return :()
 	end
-	return q
 end
 
 function differentiatewithrefs(exorig, x::Symbol)
@@ -67,10 +71,8 @@ macro equations(fundef)
 			return SparseArrays.sparse(I, J, V, numequations, length($xsym), +)
 		end
 	end
-	#=
-	@show MacroTools.prettify(q_residuals)
-	@show MacroTools.prettify(q_jacobian)
-	=#
+	#@show MacroTools.prettify(q_residuals)
+	#@show MacroTools.prettify(q_jacobian)
 	return quote
 		$q_residuals
 		$q_jacobian
@@ -84,12 +86,25 @@ function escapesymbols(expr, symbols)
 	return expr
 end
 
-function newton(residuals, jacobian, x0; numiters=10, solver=(J, r)->J \ r)
+function newtonish(residuals, jacobian, x0; numiters=10, solver=(J, r)->J \ r, rate=0.05, callback=(x, r, J, i)->nothing)
+	x = x0
+	for i = 1:numiters
+		J = jacobian(x)
+		r = residuals(x)
+		#x = (1 - rate) * x - rate * solver(J, r)
+		x = x - rate * solver(J, r)
+		callback(x, r, J, i)
+	end
+	return x
+end
+
+function newton(residuals, jacobian, x0; numiters=10, solver=(J, r)->J \ r, callback=(x, r, J, i)->nothing)
 	x = x0
 	for i = 1:numiters
 		J = jacobian(x)
 		r = residuals(x)
 		x = x - solver(J, r)
+		callback(x, r, J, i)
 	end
 	return x
 end
