@@ -24,7 +24,7 @@ for i = 1:2
 end
 
 #formulate a quadratic equation
-@NonlinearEquations.equations function quadeq(x, p)
+@NonlinearEquations.equations function quadeq(x, p; asdf=1)
 	NonlinearEquations.setnumequations(1)
 	NonlinearEquations.addterm(1, p[1] * x[1] ^ 2 + p[2] * x[1] + p[3])
 end
@@ -45,6 +45,32 @@ p = [14.0, -11.0, -15]
 root = NonlinearEquations.newton(x->quadeq_residuals(x, p), x->quadeq_jacobian(x, p), [0.0])
 @test root[1] ≈ -5 / 7
 root = NonlinearEquations.newton(x->quadeq_residuals(x, p), x->quadeq_jacobian(x, p), [1.0])
+@test root[1] ≈ 3 / 2
+
+#formulate a quadratic equation in a different way
+@NonlinearEquations.equations function quadeq2(x::T, p; asdf=1) where {T}
+	NonlinearEquations.setnumequations(1)
+	NonlinearEquations.addterm(1, p[1] * x[1] ^ 2)
+	NonlinearEquations.addterm(1, p[2] * x[1])
+	NonlinearEquations.addterm(1, p[3])
+end
+
+#solve (x-1)(x+1)
+p = [1.0, 0.0, -1.0]
+root = NonlinearEquations.newton(x->quadeq2_residuals(x, p), x->quadeq2_jacobian(x, p), [0.01])
+@test root[1] ≈ 1.0
+root = NonlinearEquations.newton(x->quadeq2_residuals(x, p), x->quadeq2_jacobian(x, p), [100.0])
+@test root[1] ≈ 1.0
+root = NonlinearEquations.newton(x->quadeq2_residuals(x, p), x->quadeq2_jacobian(x, p), [-0.01])
+@test root[1] ≈ -1.0
+root = NonlinearEquations.newton(x->quadeq2_residuals(x, p), x->quadeq2_jacobian(x, p), [-23])
+@test root[1] ≈ -1.0
+
+#solve (2x-3)(7x+5)
+p = [14.0, -11.0, -15]
+root = NonlinearEquations.newton(x->quadeq2_residuals(x, p), x->quadeq2_jacobian(x, p), [0.0])
+@test root[1] ≈ -5 / 7
+root = NonlinearEquations.newton(x->quadeq2_residuals(x, p), x->quadeq2_jacobian(x, p), [1.0])
 @test root[1] ≈ 3 / 2
 
 #formulate the steady-state diffusion equation with a heterogeneous diffusion coefficient

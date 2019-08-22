@@ -50,32 +50,33 @@ function differentiatewithrefs(exorig, x::Symbol)
 end
 
 macro equations(fundef)
-	@MacroTools.capture(fundef, function funsym_(xsym_, psym_, args__) body_ end) || error("unsupported function definition")
-	body = macroexpand(Main, body)
-	body_residuals = MacroTools.postwalk(x->replacenumequations(x, :(residuals = zeros(numequations))), body)
+	dict = MacroTools.splitdef(fundef)
+	original_body = macroexpand(Main, dict[:body])
+	body_residuals = MacroTools.postwalk(x->replacenumequations(x, :(residuals = zeros(numequations))), original_body)
 	body_residuals = MacroTools.postwalk(x->replaceaddterm(x, codegen_addterm_residuals), body_residuals)
-	q_residuals = quote
-		function $(esc(Symbol(funsym, :_residuals)))($xsym, $psym, $(args...))
-			$body_residuals
-			return residuals
-		end
+	original_name = dict[:name]
+	dict[:name] = Symbol(original_name, :_residuals)
+	dict[:body] = quote
+		$body_residuals
+		return residuals
 	end
-	body_jacobian = MacroTools.postwalk(x->replacenumequations(x, :()), body)
-	body_jacobian = MacroTools.postwalk(x->replaceaddterm(x, (eqnum, term)->codegen_addterm_jacobian(eqnum, term, xsym)), body_jacobian)
-	q_jacobian = quote
-		function $(esc(Symbol(funsym, :_jacobian)))($xsym, $psym, $(args...))
-			I = Int[]
-			J = Int[]
-			V = Float64[]
-			$body_jacobian
-			return SparseArrays.sparse(I, J, V, numequations, length($xsym), +)
-		end
+	q_residuals = MacroTools.combinedef(dict)
+	body_jacobian = MacroTools.postwalk(x->replacenumequations(x, :()), original_body)
+	body_jacobian = MacroTools.postwalk(x->replaceaddterm(x, (eqnum, term)->codegen_addterm_jacobian(eqnum, term, MacroTools.splitarg(dict[:args][1])[1])), body_jacobian)
+	dict[:name] = Symbol(original_name, :_jacobian)
+	dict[:body] = quote
+		I = Int[]
+		J = Int[]
+		V = Float64[]
+		$body_jacobian
+		return SparseArrays.sparse(I, J, V, numequations, length($(MacroTools.splitarg(dict[:args][1])[1])), +)
 	end
+	q_jacobian = MacroTools.combinedef(dict)
 	#@show MacroTools.prettify(q_residuals)
 	#@show MacroTools.prettify(q_jacobian)
 	return quote
-		$q_residuals
-		$q_jacobian
+		$(esc(q_residuals))
+		$(esc(q_jacobian))
 	end
 end
 
