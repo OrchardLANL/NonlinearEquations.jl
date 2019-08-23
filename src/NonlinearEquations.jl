@@ -44,14 +44,38 @@ function differentiatewithrefs(exorig, x::Symbol)
 			push!(diffrefs, ref)
 		end
 	end
-	diffs = Calculus.differentiate(ex, diffsyms)
+	if typeof(ex) == Symbol#this hack gets around the fact that Calculus.differentiate doesn't have a function differentiate(::Symbol, ::Array{Symbol,1})
+		diffs = Any[]
+		for i = 1:length(diffsyms)
+			if diffsyms[i] == ex
+				push!(diffs, :(1))
+			else
+				push!(diffs, :(0))
+			end
+		end
+	else
+		diffs = Calculus.differentiate(ex, diffsyms)
+	end
 	diffs = map(diff->Calculus.simplify(replacesymswithrefs(diff, dict)), diffs)
 	return diffs, diffrefs
 end
 
+macro equations(other, fundef)
+	if @MacroTools.capture(other, expandmodule=modulename_)
+		return equations(fundef, eval(modulename), Symbol[])
+	elseif @MacroTools.capture(other, exclude=(varnames_))
+		return equations(fundef, Main, map(x->x, varnames.args))
+	end
+	return equations(fundef, Main, Symbol[])
+end
+
 macro equations(fundef)
+	return equations(fundef, Main, Symbol[])
+end
+
+function equations(fundef::Expr, macroexpand_module, dont_differentiate_syms::Array{Symbol, 1})
 	dict = MacroTools.splitdef(fundef)
-	original_body = macroexpand(Main, dict[:body])
+	original_body = macroexpand(macroexpand_module, dict[:body])
 	body_residuals = MacroTools.postwalk(x->replacenumequations(x, :(residuals = zeros(numequations))), original_body)
 	body_residuals = MacroTools.postwalk(x->replaceaddterm(x, codegen_addterm_residuals), body_residuals)
 	original_name = dict[:name]
@@ -61,23 +85,24 @@ macro equations(fundef)
 		return residuals
 	end
 	q_residuals = MacroTools.combinedef(dict)
-	body_jacobian = MacroTools.postwalk(x->replacenumequations(x, :()), original_body)
-	body_jacobian = MacroTools.postwalk(x->replaceaddterm(x, (eqnum, term)->codegen_addterm_jacobian(eqnum, term, MacroTools.splitarg(dict[:args][1])[1])), body_jacobian)
-	dict[:name] = Symbol(original_name, :_jacobian)
-	dict[:body] = quote
-		I = Int[]
-		J = Int[]
-		V = Float64[]
-		$body_jacobian
-		return SparseArrays.sparse(I, J, V, numequations, length($(MacroTools.splitarg(dict[:args][1])[1])), +)
-	end
-	q_jacobian = MacroTools.combinedef(dict)
-	#@show MacroTools.prettify(q_residuals)
-	#@show MacroTools.prettify(q_jacobian)
-	return quote
+	q_result = quote
 		$(esc(q_residuals))
-		$(esc(q_jacobian))
 	end
+	for arg in filter(x->!(x in dont_differentiate_syms), dict[:args])
+		arg_name = MacroTools.splitarg(arg)[1]
+		body_jacobian = MacroTools.postwalk(x->replacenumequations(x, :()), original_body)
+		body_jacobian = MacroTools.postwalk(x->replaceaddterm(x, (eqnum, term)->codegen_addterm_jacobian(eqnum, term, arg_name)), body_jacobian)
+		dict[:name] = Symbol(original_name, :_, arg_name)
+		dict[:body] = quote
+			I = Int[]
+			J = Int[]
+			V = Float64[]
+			$body_jacobian
+			return SparseArrays.sparse(I, J, V, numequations, length($arg_name), +)
+		end
+		push!(q_result.args, :($(esc(MacroTools.combinedef(dict)))))
+	end
+	return q_result
 end
 
 function escapesymbols(expr, symbols)

@@ -1,5 +1,4 @@
 #this example is modified from https://numericalenvironmental.wordpress.com/2018/05/26/a-steady-state-variably-saturated-flow-model-in-vertical-cross-section-a-finite-difference-approach-using-julia/
-import LineSearches
 import NLsolve
 import NonlinearEquations
 import PyPlot
@@ -7,7 +6,7 @@ import PyPlot
 include("utilities.jl")
 include("inputdeck.jl")
 
-@NonlinearEquations.equations function reqnumenv(psi, Ks, neighbors, areasoverlengths, dirichletnodes, dirichletpsis, coords, alphas, Ns, Qs)
+@NonlinearEquations.equations exclude=(coords, dirichletnodes, neighbors, areasoverlengths) function reqnumenv(psi, Ks, neighbors, areasoverlengths, dirichletnodes, dirichletpsis, coords, alphas, Ns, Qs)
 	NonlinearEquations.setnumequations(length(psi))
 	for i = 1:length(psi)
 		if i in dirichletnodes
@@ -30,9 +29,9 @@ include("inputdeck.jl")
 end
 
 resnumenv(psi) = reqnumenv_residuals(psi, Ks, neighbors, areasoverlengths, dirichletnodes, dirichletpsis, coords, alphas, Ns, Qs)
-jacnumenv(psi) = reqnumenv_jacobian(psi, Ks, neighbors, areasoverlengths, dirichletnodes, dirichletpsis, coords, alphas, Ns, Qs)
+jacnumenv(psi) = reqnumenv_psi(psi, Ks, neighbors, areasoverlengths, dirichletnodes, dirichletpsis, coords, alphas, Ns, Qs)
 
-@NonlinearEquations.equations function req(psi, Ks, neighbors, areasoverlengths, dirichletnodes, dirichletpsis, coords, alphas, Ns, Qs)
+@NonlinearEquations.equations exclude=(coords, dirichletnodes, neighbors, areasoverlengths) function req(psi, Ks, neighbors, areasoverlengths, dirichletnodes, dirichletpsis, coords, alphas, Ns, Qs)
 	NonlinearEquations.setnumequations(length(psi))
 	for i = 1:length(psi)
 		if i in dirichletnodes
@@ -53,7 +52,7 @@ jacnumenv(psi) = reqnumenv_jacobian(psi, Ks, neighbors, areasoverlengths, dirich
 end
 
 res(psi) = req_residuals(psi, Ks, neighbors, areasoverlengths, dirichletnodes, dirichletpsis, coords, alphas, Ns, Qs)
-jac(psi) = req_jacobian(psi, Ks, neighbors, areasoverlengths, dirichletnodes, dirichletpsis, coords, alphas, Ns, Qs)
+jac(psi) = req_psi(psi, Ks, neighbors, areasoverlengths, dirichletnodes, dirichletpsis, coords, alphas, Ns, Qs)
 f!(residuals, psi) = copy!(residuals, res(psi))
 j!(J, psi) = NonlinearEquations.updateentries!(J, jac(psi))
 

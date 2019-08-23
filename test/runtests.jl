@@ -31,20 +31,20 @@ end
 
 #solve (x-1)(x+1)
 p = [1.0, 0.0, -1.0]
-root = NonlinearEquations.newton(x->quadeq_residuals(x, p), x->quadeq_jacobian(x, p), [0.01])
+root = NonlinearEquations.newton(x->quadeq_residuals(x, p), x->quadeq_x(x, p), [0.01])
 @test root[1] ≈ 1.0
-root = NonlinearEquations.newton(x->quadeq_residuals(x, p), x->quadeq_jacobian(x, p), [100.0])
+root = NonlinearEquations.newton(x->quadeq_residuals(x, p), x->quadeq_x(x, p), [100.0])
 @test root[1] ≈ 1.0
-root = NonlinearEquations.newton(x->quadeq_residuals(x, p), x->quadeq_jacobian(x, p), [-0.01])
+root = NonlinearEquations.newton(x->quadeq_residuals(x, p), x->quadeq_x(x, p), [-0.01])
 @test root[1] ≈ -1.0
-root = NonlinearEquations.newton(x->quadeq_residuals(x, p), x->quadeq_jacobian(x, p), [-23])
+root = NonlinearEquations.newton(x->quadeq_residuals(x, p), x->quadeq_x(x, p), [-23])
 @test root[1] ≈ -1.0
 
 #solve (2x-3)(7x+5)
 p = [14.0, -11.0, -15]
-root = NonlinearEquations.newton(x->quadeq_residuals(x, p), x->quadeq_jacobian(x, p), [0.0])
+root = NonlinearEquations.newton(x->quadeq_residuals(x, p), x->quadeq_x(x, p), [0.0])
 @test root[1] ≈ -5 / 7
-root = NonlinearEquations.newton(x->quadeq_residuals(x, p), x->quadeq_jacobian(x, p), [1.0])
+root = NonlinearEquations.newton(x->quadeq_residuals(x, p), x->quadeq_x(x, p), [1.0])
 @test root[1] ≈ 3 / 2
 
 #formulate a quadratic equation in a different way
@@ -57,20 +57,20 @@ end
 
 #solve (x-1)(x+1)
 p = [1.0, 0.0, -1.0]
-root = NonlinearEquations.newton(x->quadeq2_residuals(x, p), x->quadeq2_jacobian(x, p), [0.01])
+root = NonlinearEquations.newton(x->quadeq2_residuals(x, p), x->quadeq2_x(x, p), [0.01])
 @test root[1] ≈ 1.0
-root = NonlinearEquations.newton(x->quadeq2_residuals(x, p), x->quadeq2_jacobian(x, p), [100.0])
+root = NonlinearEquations.newton(x->quadeq2_residuals(x, p), x->quadeq2_x(x, p), [100.0])
 @test root[1] ≈ 1.0
-root = NonlinearEquations.newton(x->quadeq2_residuals(x, p), x->quadeq2_jacobian(x, p), [-0.01])
+root = NonlinearEquations.newton(x->quadeq2_residuals(x, p), x->quadeq2_x(x, p), [-0.01])
 @test root[1] ≈ -1.0
-root = NonlinearEquations.newton(x->quadeq2_residuals(x, p), x->quadeq2_jacobian(x, p), [-23])
+root = NonlinearEquations.newton(x->quadeq2_residuals(x, p), x->quadeq2_x(x, p), [-23])
 @test root[1] ≈ -1.0
 
 #solve (2x-3)(7x+5)
 p = [14.0, -11.0, -15]
-root = NonlinearEquations.newton(x->quadeq2_residuals(x, p), x->quadeq2_jacobian(x, p), [0.0])
+root = NonlinearEquations.newton(x->quadeq2_residuals(x, p), x->quadeq2_x(x, p), [0.0])
 @test root[1] ≈ -5 / 7
-root = NonlinearEquations.newton(x->quadeq2_residuals(x, p), x->quadeq2_jacobian(x, p), [1.0])
+root = NonlinearEquations.newton(x->quadeq2_residuals(x, p), x->quadeq2_x(x, p), [1.0])
 @test root[1] ≈ 3 / 2
 
 #formulate the steady-state diffusion equation with a heterogeneous diffusion coefficient
@@ -89,7 +89,7 @@ end
 #solve the diffusion equation with head=1 at x=0 and head=0 at x=1 and a homogeneous diffusion coefficient
 n = 10 ^ 3
 p = ones(n + 1)
-head = NonlinearEquations.newton(x->diffusion_residuals(x, p, n), x->diffusion_jacobian(x, p, n), zeros(n); numiters=1)
+head = NonlinearEquations.newton(x->diffusion_residuals(x, p, n), x->diffusion_x(x, p, n), zeros(n); numiters=1)
 dx2 = (1 / (n + 1)) ^ 2
 otherhead = SparseArrays.spdiagm(-1=>-ones(n - 1) / dx2, 0=>2 * ones(n) / dx2, 1=>-ones(n - 1) / dx2) \ [[1 / dx2]; zeros(n - 1)]
 @test head ≈ otherhead
@@ -98,7 +98,7 @@ otherhead = SparseArrays.spdiagm(-1=>-ones(n - 1) / dx2, 0=>2 * ones(n) / dx2, 1
 n = 10 ^ 3
 windowsize = div(n, 10)
 p = exp.(DSP.conv(0.1 * rand(n + windowsize + 1), ones(windowsize))[windowsize + 1:end - windowsize + 1])
-head = NonlinearEquations.newton(x->diffusion_residuals(x, p, n), x->diffusion_jacobian(x, p, n), zeros(n); numiters=1)
+head = NonlinearEquations.newton(x->diffusion_residuals(x, p, n), x->diffusion_x(x, p, n), zeros(n); numiters=1)
 dx2 = (1 / (n + 1)) ^ 2
 otherhead = SparseArrays.spdiagm(-1=>-p[2:n] / dx2, 0=>(p[1:n] + p[2:n + 1]) / dx2, 1=>-p[2:n] / dx2) \ [[p[1] / dx2]; zeros(n - 1)]
 @test head ≈ otherhead
@@ -118,6 +118,6 @@ end
 #now solve the boundary value problem
 n = 10 ^ 4
 p = []
-u = NonlinearEquations.newton(x->nonlinearbvp_residuals(x, p, n), x->nonlinearbvp_jacobian(x, p, n), zeros(n); numiters=100)
+u = NonlinearEquations.newton(x->nonlinearbvp_residuals(x, p, n), x->nonlinearbvp_u(x, p, n), zeros(n); numiters=100)
 u_analytical = map(x->sin(x), collect(range(0, pi; length=n + 2))[2:end - 1])
 @test u ≈ u_analytical
