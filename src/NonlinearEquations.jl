@@ -112,6 +112,11 @@ function escapesymbols(expr, symbols)
 	return expr
 end
 
+function gradient(x, p, g_x, g_p, f_x, f_p)
+	lambda = transpose(f_x(x, p)) \ g_x(x, p)
+	return g_p(x, p) - transpose(f_p(x, p)) * lambda
+end
+
 function newtonish(residuals, jacobian, x0; numiters=10, solver=(J, r)->J \ r, rate=0.05, callback=(x, r, J, i)->nothing)
 	x = x0
 	for i = 1:numiters

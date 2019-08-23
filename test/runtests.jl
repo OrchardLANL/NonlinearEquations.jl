@@ -1,4 +1,5 @@
 using Test
+import Calculus
 import DSP
 import NonlinearEquations
 import Random
@@ -39,13 +40,22 @@ root = NonlinearEquations.newton(x->quadeq_residuals(x, p), x->quadeq_x(x, p), [
 @test root[1] ≈ -1.0
 root = NonlinearEquations.newton(x->quadeq_residuals(x, p), x->quadeq_x(x, p), [-23])
 @test root[1] ≈ -1.0
+#test the gradient
+g(x, p) = x[1] * (p[1] + 2 * p[2] + 3 * p[3])
+g_x(x, p) = [(p[1] + 2 * p[2] + 3 * p[3])]
+g_p(x, p) = x[1] * [1, 2, 3]
+f_x(x, p) = quadeq_x(x, p)
+f_p(x, p) = quadeq_p(x, p)
+g(p) = (-p[2] - sqrt(p[2] ^ 2 - 4 * p[1] * p[3])) / (2 * p[1]) * (p[1] + 2 * p[2] + 3 * p[3])
+analytical_gradient = Calculus.gradient(g)
+@test analytical_gradient(p) ≈ NonlinearEquations.gradient(root, p, g_x, g_p, f_x, f_p)
 
 #solve (2x-3)(7x+5)
 p = [14.0, -11.0, -15]
-root = NonlinearEquations.newton(x->quadeq_residuals(x, p), x->quadeq_x(x, p), [0.0])
-@test root[1] ≈ -5 / 7
 root = NonlinearEquations.newton(x->quadeq_residuals(x, p), x->quadeq_x(x, p), [1.0])
 @test root[1] ≈ 3 / 2
+root = NonlinearEquations.newton(x->quadeq_residuals(x, p), x->quadeq_x(x, p), [0.0])
+@test root[1] ≈ -5 / 7
 
 #formulate a quadratic equation in a different way
 @NonlinearEquations.equations function quadeq2(x::T, p; asdf=1) where {T}
