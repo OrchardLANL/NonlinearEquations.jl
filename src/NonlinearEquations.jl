@@ -10,6 +10,28 @@ function codegen_addterm_residuals(equationnum, term)
 	end
 end
 
+function codegen_addterm_inplacejacobian(equationnum, term, xsym)
+	if MacroTools.inexpr(term, xsym)
+		derivatives, refs = NonlinearEquations.differentiatewithrefs(term, xsym)
+		for ref in refs
+			if length(ref) != 1
+				error("must be a reference with a single index")
+			end
+		end
+		refs = map(ref->replaceall(ref[1], :end, :(length($xsym))), refs)
+		q = quote end
+		for (derivative, ref) in zip(derivatives, refs)
+			newcode = quote
+				___jacobian_storage___[$equationnum, $ref] += $derivative
+			end
+			append!(q.args, newcode.args)
+		end
+		return q
+	else
+		return :()
+	end
+end
+
 function codegen_addterm_jacobian(equationnum, term, xsym)
 	if MacroTools.inexpr(term, xsym)
 		derivatives, refs = NonlinearEquations.differentiatewithrefs(term, xsym)
@@ -76,6 +98,7 @@ end
 function equations(fundef::Expr, macroexpand_module, dont_differentiate_syms::Array{Symbol, 1})
 	dict = MacroTools.splitdef(fundef)
 	original_body = macroexpand(macroexpand_module, dict[:body])
+	#generate the code for computing the residuals
 	body_residuals = MacroTools.postwalk(x->replacenumequations(x, :(residuals = zeros(numequations))), original_body)
 	body_residuals = MacroTools.postwalk(x->replaceaddterm(x, codegen_addterm_residuals), body_residuals)
 	original_name = dict[:name]
@@ -88,6 +111,7 @@ function equations(fundef::Expr, macroexpand_module, dont_differentiate_syms::Ar
 	q_result = quote
 		$(esc(q_residuals))
 	end
+	#generate the code for the jacobian
 	for arg in filter(x->!(x in dont_differentiate_syms), dict[:args])
 		arg_name = MacroTools.splitarg(arg)[1]
 		body_jacobian = MacroTools.postwalk(x->replacenumequations(x, :()), original_body)
@@ -99,6 +123,20 @@ function equations(fundef::Expr, macroexpand_module, dont_differentiate_syms::Ar
 			V = Float64[]
 			$body_jacobian
 			return SparseArrays.sparse(I, J, V, numequations, length($arg_name), +)
+		end
+		push!(q_result.args, :($(esc(MacroTools.combinedef(dict)))))
+	end
+	#generate the in-place versions of the jacobian
+	pushfirst!(dict[:args], :___jacobian_storage___)
+	for arg in filter(x->!(x in dont_differentiate_syms), dict[:args])
+		arg_name = MacroTools.splitarg(arg)[1]
+		body_inplacejacobian = MacroTools.postwalk(x->replacenumequations(x, :()), original_body)
+		body_inplacejacobian = MacroTools.postwalk(x->replaceaddterm(x, (eqnum, term)->codegen_addterm_inplacejacobian(eqnum, term, arg_name)), body_inplacejacobian)
+		dict[:name] = Symbol(original_name, :_, arg_name, :!)
+		dict[:body] = quote
+			fill!(SparseArrays.nonzeros(___jacobian_storage___), 0.0)
+			$body_inplacejacobian
+			return nothing
 		end
 		push!(q_result.args, :($(esc(MacroTools.combinedef(dict)))))
 	end

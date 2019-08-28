@@ -2,6 +2,7 @@
 import NLsolve
 import NonlinearEquations
 import PyPlot
+import Random
 
 include("utilities.jl")
 include("inputdeck.jl")
@@ -28,9 +29,6 @@ include("inputdeck.jl")
 	end
 end
 
-resnumenv(psi) = reqnumenv_residuals(psi, Ks, neighbors, areasoverlengths, dirichletnodes, dirichletpsis, coords, alphas, Ns, Qs)
-jacnumenv(psi) = reqnumenv_psi(psi, Ks, neighbors, areasoverlengths, dirichletnodes, dirichletpsis, coords, alphas, Ns, Qs)
-
 @NonlinearEquations.equations exclude=(coords, dirichletnodes, neighbors, areasoverlengths) function req(psi, Ks, neighbors, areasoverlengths, dirichletnodes, dirichletpsis, coords, alphas, Ns, Qs)
 	NonlinearEquations.setnumequations(length(psi))
 	for i = 1:length(psi)
@@ -51,29 +49,62 @@ jacnumenv(psi) = reqnumenv_psi(psi, Ks, neighbors, areasoverlengths, dirichletno
 	end
 end
 
-res(psi) = req_residuals(psi, Ks, neighbors, areasoverlengths, dirichletnodes, dirichletpsis, coords, alphas, Ns, Qs)
-jac(psi) = req_psi(psi, Ks, neighbors, areasoverlengths, dirichletnodes, dirichletpsis, coords, alphas, Ns, Qs)
-f!(residuals, psi) = copy!(residuals, res(psi))
-j!(J, psi) = NonlinearEquations.updateentries!(J, jac(psi))
+psi0 = -ones(size(coords, 2))
+psi0[dirichletnodes] = zeros(length(dirichletnodes))
 
-@time begin
-	psi0 = -ones(size(coords, 2))
-	psi0[dirichletnodes] = zeros(length(dirichletnodes))
-	@time psi1 = NonlinearEquations.newtonish(resnumenv, jacnumenv, psi0; numiters=10, rate=0.05)
+function solveforpsi(Ks, psi0=psi0; doplot=false, donewtonish=true)
+	resnumenv(psi) = reqnumenv_residuals(psi, Ks, neighbors, areasoverlengths, dirichletnodes, dirichletpsis, coords, alphas, Ns, Qs)
+	jacnumenv(psi) = reqnumenv_psi(psi, Ks, neighbors, areasoverlengths, dirichletnodes, dirichletpsis, coords, alphas, Ns, Qs)
+	res(psi) = req_residuals(psi, Ks, neighbors, areasoverlengths, dirichletnodes, dirichletpsis, coords, alphas, Ns, Qs)
+	jac(psi) = req_psi(psi, Ks, neighbors, areasoverlengths, dirichletnodes, dirichletpsis, coords, alphas, Ns, Qs)
+	j!(J, psi) = req_psi!(J, psi, Ks, neighbors, areasoverlengths, dirichletnodes, dirichletpsis, coords, alphas, Ns, Qs)
+	f!(residuals, psi) = copy!(residuals, res(psi))
+	if donewtonish
+		psi1 = NonlinearEquations.newtonish(resnumenv, jacnumenv, psi0; numiters=10, rate=0.05)
+	else
+		psi1 = psi0
+	end
 	#callback(psi1, res(psi1), jac(psi1), 0)
 	df = NLsolve.OnceDifferentiable(f!, j!, psi1, res(psi0), jac(psi0))
 	nls = NLsolve.nlsolve(df, psi1; show_trace=false, iterations=200, ftol=1e-15)
+	if doplot
+		callback(nls.zero, res(nls.zero), jac(nls.zero), 0)
+	end
+	return nls.zero
 end
-callback(nls.zero, res(nls.zero), jac(nls.zero), 0)
+
+psi = solveforpsi(Ks; doplot=true)
+
+#compute the gradient
+Random.seed!(1)
+obsnode = rand(1:length(psi))
+g(psi, Ks) = psi[obsnode]
+function g_psi(psi, p)
+	retval = zeros(length(psi))
+	retval[obsnode] = 1.0
+	return retval
+end
+g_Ks(psi, Ks) = zeros(length(Ks))
+f_psi(psi, Ks) = req_psi(psi, Ks, neighbors, areasoverlengths, dirichletnodes, dirichletpsis, coords, alphas, Ns, Qs)
+f_Ks(psi, Ks) = req_Ks(psi, Ks, neighbors, areasoverlengths, dirichletnodes, dirichletpsis, coords, alphas, Ns, Qs)
+grad = NonlinearEquations.gradient(psi, Ks, g_psi, g_Ks, f_psi, f_Ks)
+grad = NonlinearEquations.gradient(psi, Ks, g_psi, g_Ks, f_psi, f_Ks)
+plotgradient(grad, obsnode)
 
 #=
-fig, ax = PyPlot.subplots()
-ax.plot(sort(psi1), krclay.(sort(psi1)), label="clay")
-ax.plot(sort(psi1), krclaysilt.(sort(psi1)), label="claysilt")
-ax.legend()
-display(fig)
-println()
-println()
-PyPlot.close(fig)
+fdgrad = similar(grad)
+sortedgradindices = sort(1:length(grad); by=i->abs(grad[i]), rev=true)
+@time for i = 1:length(fdgrad)
+	global fdgrad
+	global Ks
+	global psi
+	dk = 1e-8
+	psi0 = psi
+	Ks0 = copy(Ks)
+	thisKs = copy(Ks)
+	thisKs[i] += dk
+	thispsi = solveforpsi(thisKs, psi0; donewtonish=false)
+	fdgrad[i] = (thispsi[obsnode] - psi0[obsnode]) / dk
+end
+plotgradient(fdgrad, obsnode)
 =#
-nothing
