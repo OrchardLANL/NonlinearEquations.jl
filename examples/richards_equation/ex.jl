@@ -88,7 +88,6 @@ g_Ks(psi, Ks) = zeros(length(Ks))
 f_psi(psi, Ks) = req_psi(psi, Ks, neighbors, areasoverlengths, dirichletnodes, dirichletpsis, coords, alphas, Ns, Qs)
 f_Ks(psi, Ks) = req_Ks(psi, Ks, neighbors, areasoverlengths, dirichletnodes, dirichletpsis, coords, alphas, Ns, Qs)
 grad = NonlinearEquations.gradient(psi, Ks, g_psi, g_Ks, f_psi, f_Ks)
-grad = NonlinearEquations.gradient(psi, Ks, g_psi, g_Ks, f_psi, f_Ks)
 plotgradient(grad, obsnode)
 
 #=
