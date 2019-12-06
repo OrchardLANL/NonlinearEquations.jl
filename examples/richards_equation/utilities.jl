@@ -124,16 +124,21 @@ function updateneighborarrays!(a1, a2, pair, value)
 	end
 end
 
-function plotgradient(grad, obsnode)
+function breakupgradient(grad)
 	grad1 = zeros(ns[2], ns[1] - 1)
 	grad2 = zeros(ns[2] - 1, ns[1])
 	for (v, pair) in zip(grad, neighbors)
 		updateneighborarrays!(grad1, grad2, pair, v)
 	end
+	return grad1, grad2
+end
+
+function plotgradient(grad, obsnode; vmin=minimum(grad), vmax=maximum(grad))
+	grad1, grad2 = breakupgradient(grad)
 	fig, axs = PyPlot.subplots(1, 2, figsize=(16, 9))
-	img = axs[1].imshow(grad1, extent=[mins[1], maxs[1], mins[2], maxs[2]], origin="lower", interpolation="nearest")
+	img = axs[1].imshow(grad1, extent=[mins[1], maxs[1], mins[2], maxs[2]], origin="lower", interpolation="nearest", vmin=vmin, vmax=vmax)
 	fig.colorbar(img, ax=axs[1])
-	img = axs[2].imshow(grad2, extent=[mins[1], maxs[1], mins[2], maxs[2]], origin="lower", interpolation="nearest")
+	img = axs[2].imshow(grad2, extent=[mins[1], maxs[1], mins[2], maxs[2]], origin="lower", interpolation="nearest", vmin=vmin, vmax=vmax)
 	fig.colorbar(img, ax=axs[2])
 	display(fig)
 	println()

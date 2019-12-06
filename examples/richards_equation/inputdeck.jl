@@ -32,8 +32,11 @@ end
 mins = [0, 0]
 maxs = [100, 60]
 #ns = [51, 31]
+#ns = [75, 45]
 ns = [101, 61]
 #ns = [201, 121]
+#ns = [401, 241]
+#ns = [801, 481]
 coords, neighbors, areasoverlengths, volumes = regulargrid(mins, maxs, ns, 1.0)
 params = Dict(:clay=>(1.58e-4, 0.244, 1.09, 0.178947368), :claysilt=>(1e-2, 0.488, 1.37, 0.073913043))#(K, alpha, N, sr)
 inclay(x, z) = x < 65 && z > 25 && z < 30
