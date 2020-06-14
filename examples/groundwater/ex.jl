@@ -26,39 +26,35 @@ include("inputdeck.jl")
 	end
 end
 
-psi0 = -ones(size(coords, 2))
-psi0[dirichletnodes] = zeros(length(dirichletnodes))
+#h0 = -ones(size(coords, 2))
+#h0[dirichletnodes] = zeros(length(dirichletnodes))
 
-function solveforpsi(Ks, psi0=psi0; doplot=false, donewtonish=true)
-	res(psi) = groundwater_residuals(psi, Ks, neighbors, areasoverlengths, dirichletnodes, dirichletpsis, Qs)
-	jac(psi) = groundwater_h(psi, Ks, neighbors, areasoverlengths, dirichletnodes, dirichletpsis, Qs)
-	j!(J, psi) = groundwater_h!(J, psi, Ks, neighbors, areasoverlengths, dirichletnodes, dirichletpsis, Qs)
-	f!(residuals, psi) = copy!(residuals, res(psi))
-	psi1 = psi0
-	#callback(psi1, res(psi1), jac(psi1), 0)
-	df = NLsolve.OnceDifferentiable(f!, j!, psi1, res(psi0), jac(psi0))
-	nls = NLsolve.nlsolve(df, psi1; show_trace=false, iterations=200, ftol=1e-15)
+function solveforh(Ks; doplot=false, donewtonish=true)
+	res(h) = groundwater_residuals(h, Ks, neighbors, areasoverlengths, dirichletnodes, dirichleths, Qs)
+	jac(h) = groundwater_h(h, Ks, neighbors, areasoverlengths, dirichletnodes, dirichleths, Qs)
+	h0 = zeros(size(coords, 2))
+	h = jac(h0) \ -res(h0)
 	if doplot
-		callback(nls.zero, res(nls.zero), jac(nls.zero), 0)
+		callback(h, res(h), jac(h), 0)
 	end
-	return nls.zero
+	return h
 end
 
-psi = solveforpsi(Ks; doplot=true)
+h = solveforh(Ks; doplot=true)
 
 #compute the gradient
 Random.seed!(1)
-obsnode = rand(1:length(psi))
-g(psi, Ks) = psi[obsnode]
-function g_h(psi, p)
-	retval = zeros(length(psi))
+obsnode = rand(1:length(h))
+g(h, Ks) = h[obsnode]
+function g_h(h, p)
+	retval = zeros(length(h))
 	retval[obsnode] = 1.0
 	return retval
 end
-g_Ks(psi, Ks) = zeros(length(Ks))
-f_h(psi, Ks) = groundwater_h(psi, Ks, neighbors, areasoverlengths, dirichletnodes, dirichletpsis, Qs)
-f_Ks(psi, Ks) = groundwater_Ks(psi, Ks, neighbors, areasoverlengths, dirichletnodes, dirichletpsis, Qs)
-grad = NonlinearEquations.gradient(psi, Ks, g_h, g_Ks, f_h, f_Ks)
+g_Ks(h, Ks) = zeros(length(Ks))
+f_h(h, Ks) = groundwater_h(h, Ks, neighbors, areasoverlengths, dirichletnodes, dirichleths, Qs)
+f_Ks(h, Ks) = groundwater_Ks(h, Ks, neighbors, areasoverlengths, dirichletnodes, dirichleths, Qs)
+grad = NonlinearEquations.gradient(h, Ks, g_h, g_Ks, f_h, f_Ks)
 plotgradient(grad, obsnode)
 
 fdgrad = similar(grad)
@@ -66,14 +62,14 @@ sortedgradindices = sort(1:length(grad); by=i->abs(grad[i]), rev=true)
 @time for i = 1:length(fdgrad)
 	global fdgrad
 	global Ks
-	global psi
+	global h
 	dk = 1e-8
-	psi0 = psi
+	h0 = h
 	Ks0 = copy(Ks)
 	thisKs = copy(Ks)
 	thisKs[i] += dk
-	thispsi = solveforpsi(thisKs, psi0; donewtonish=false)
-	fdgrad[i] = (thispsi[obsnode] - psi0[obsnode]) / dk
+	thish = solveforh(thisKs)
+	fdgrad[i] = (thish[obsnode] - h0[obsnode]) / dk
 end
 plotgradient(fdgrad, obsnode)
 @test isapprox(grad, fdgrad; rtol=1e-4)

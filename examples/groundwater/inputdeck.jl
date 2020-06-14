@@ -43,17 +43,15 @@ inclay(x, z) = x < 65 && z > 25 && z < 30
 function setupparams(coords, neighbors)
 	global params
 	Ks = zeros(length(neighbors))
-	alphas = zeros(length(neighbors))
-	Ns = zeros(length(neighbors))
 	#name	Kh	Kz	alpha	N	sr
 	#claysilt	1.00E-02	1.00E-02	0.488	1.37	0.073913043
 	#clay	1.58E-04	1.58E-04	0.244	1.09	0.178947368
 	for (i, (node1, node2)) in enumerate(neighbors)
 		x, z = 0.5 * (coords[:, node1] + coords[:, node2])
 		if inclay(x, z)
-			Ks[i], alphas[i], Ns[i] = params[:clay]
+			Ks[i], _, _ = params[:clay]
 		else
-			Ks[i], alphas[i], Ns[i] = params[:claysilt]
+			Ks[i], _, _ = params[:claysilt]
 		end
 	end
 	dirichletnodes = Int[]
@@ -66,8 +64,8 @@ function setupparams(coords, neighbors)
 			Qs[i] = 0.00055
 		end
 	end
-	dirichletpsis = zeros(size(coords, 2))
-	return Ks, dirichletnodes, dirichletpsis, alphas, Ns, Qs
+	dirichleths = zeros(size(coords, 2))
+	return Ks, dirichletnodes, dirichleths, Qs
 end
 
-Ks, dirichletnodes, dirichletpsis, alphas, Ns, Qs = setupparams(coords, neighbors)
+Ks, dirichletnodes, dirichleths, Qs = setupparams(coords, neighbors)
