@@ -1,8 +1,12 @@
 using Test
 import Calculus
+import ForwardDiff
 import NonlinearEquations
 import Random
 import SparseArrays
+using StaticArrays
+
+ForwardDiff_gradient(x...) = ForwardDiff.gradient(x...)
 
 function kr(psi, alpha, N)
 	if psi < 0
@@ -11,12 +15,34 @@ function kr(psi, alpha, N)
 		numer = 1 - abs(alpha * psi) ^ (N - 1) * denom ^ (-m)
 		return numer ^ 2 / denom ^ (m / 2)
 	else
-		return 1.0
+		return one(psi)
+	end
+end
+
+kr(x::AbstractArray) = kr(x[1], x[2], x[3])
+
+function Calculus.differentiate(x::Calculus.SymbolParameter{:kr}, args, wrt)
+	chain_part = map(x->Calculus.simplify(Calculus.differentiate(x, wrt)), args)
+	if chain_part == [0, 0, 0]
+		return :(0)
+	else
+		return :(sum(ForwardDiff_gradient(kr, SA[$(args...)]) .* SA[$(chain_part...)]))
 	end
 end
 
 function hm(x, y)
 	return 2 / (1 / x + 1 / y)
+end
+
+hm(x::AbstractArray) = hm(x[1], x[2])
+
+function Calculus.differentiate(x::Calculus.SymbolParameter{:hm}, args, wrt)
+	chain_part = map(x->Calculus.simplify(Calculus.differentiate(x, wrt)), args)
+	if chain_part == [0, 0]
+		return :(0)
+	else
+		return :(sum(ForwardDiff_gradient(hm, SA[$(args...)]) .* SA[$(chain_part...)]))
+	end
 end
 
 function Calculus.differentiate(x::Calculus.SymbolParameter{:abs}, args, wrt)
@@ -25,38 +51,6 @@ function Calculus.differentiate(x::Calculus.SymbolParameter{:abs}, args, wrt)
 	end
 	arg = args[1]
 	return :(ifelse($arg > 0, 1, -1) * $(Calculus.differentiate(arg, wrt)))
-end
-
-macro kr(psi, alpha, N)
-	q = :(ifelse($(esc(psi)) < 0, (1 - abs($(esc(alpha)) * $(esc(psi))) ^ ($(esc(N)) - 1) * (1 + abs($(esc(alpha)) * $(esc(psi))) ^ $(esc(N))) ^ -(($(esc(N)) - 1) / $(esc(N)))) ^ 2 / (1 + abs($(esc(alpha)) * $(esc(psi))) ^ $(esc(N))) ^ (($(esc(N)) - 1) / (2 * $(esc(N)))), 1.0))
-	return NonlinearEquations.escapesymbols(q, [:ifelse, :abs, :+, :-, :^, :/, :<, :*])
-end
-
-macro kr2(sat, psi, alpha, N)
-	q = :(ifelse($(esc(psi)) < 0, (1 - abs($(esc(alpha)) * $(esc(psi))) ^ ($(esc(N)) - 1) * abs($(esc(sat)))) ^ 2 * sqrt(abs($(esc(sat)))), 1.0))
-	return NonlinearEquations.escapesymbols(q, [:ifelse, :abs, :+, :-, :^, :/, :<, :*, :sqrt])
-end
-
-macro hm(x, y)
-	q = :(2.0 / (1 / $(esc(x)) + 1 / $(esc(y))))
-	return NonlinearEquations.escapesymbols(q, [:/ :+])
-end
-
-Random.seed!(0)
-for i = 1:10 ^ 3
-	psi = randn()
-	alpha = randn()
-	N = randn()
-	@test kr(psi, alpha, N) == @kr(psi, alpha, N)
-	x = randn()
-	y = randn()
-	@test hm(x, y) == @hm(x, y)
-	K = randn()
-	psi2 = rand()
-	alpha2 = randn()
-	N2 = randn()
-	K2 = rand()
-	@test hm(kr(psi, alpha, N) * K, kr(psi2, alpha2, N2) * K2) == @hm(@kr(psi, alpha, N) * K, @kr(psi2, alpha2, N2) * K2)
 end
 
 function effective_saturation(alpha::Number, psi::Number, N::Number)

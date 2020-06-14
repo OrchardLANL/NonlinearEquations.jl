@@ -3,6 +3,7 @@ import NLsolve
 import NonlinearEquations
 import PyPlot
 import Random
+import Zygote
 
 include("utilities.jl")
 include("inputdeck.jl")
@@ -19,10 +20,10 @@ include("inputdeck.jl")
 	for (i, (node_a, node_b)) in enumerate(neighbors)
 		for (node1, node2) in [(node_a, node_b), (node_b, node_a)]
 			if !(node1 in dirichletnodes) && !(node2 in dirichletnodes)
-				relperm = @hm(@kr(psi[node1], alphas[i], Ns[i]), @kr(psi[node2], alphas[i], Ns[i]))
+				relperm = hm(kr(psi[node1], alphas[i], Ns[i]), kr(psi[node2], alphas[i], Ns[i]))
 				NonlinearEquations.addterm(node1, relperm * Ks[i] * (psi[node2] + coords[2, node2] - psi[node1] - coords[2, node1]) * areasoverlengths[i])
 			elseif !(node1 in dirichletnodes) && node2 in dirichletnodes
-				relperm = @hm(@kr(psi[node1], alphas[i], Ns[i]), @kr(dirichletpsis[node2], alphas[i], Ns[i]))
+				relperm = hm(kr(psi[node1], alphas[i], Ns[i]), kr(dirichletpsis[node2], alphas[i], Ns[i]))
 				NonlinearEquations.addterm(node1, relperm * Ks[i] * (dirichletpsis[node2] + coords[2, node2] - psi[node1] - coords[2, node1]) * areasoverlengths[i])
 			end
 		end
@@ -41,9 +42,9 @@ end
 	for (i, (node_a, node_b)) in enumerate(neighbors)
 		for (node1, node2) in [(node_a, node_b), (node_b, node_a)]
 			if !(node1 in dirichletnodes) && !(node2 in dirichletnodes)
-				NonlinearEquations.addterm(node1, @hm(@kr(psi[node1], alphas[i], Ns[i]), @kr(psi[node2], alphas[i], Ns[i])) * Ks[i] * (psi[node2] + coords[2, node2] - psi[node1] - coords[2, node1]) * areasoverlengths[i])
+				NonlinearEquations.addterm(node1, hm(kr(psi[node1], alphas[i], Ns[i]), kr(psi[node2], alphas[i], Ns[i])) * Ks[i] * (psi[node2] + coords[2, node2] - psi[node1] - coords[2, node1]) * areasoverlengths[i])
 			elseif !(node1 in dirichletnodes) && node2 in dirichletnodes
-				NonlinearEquations.addterm(node1, @hm(@kr(psi[node1], alphas[i], Ns[i]), @kr(dirichletpsis[node2], alphas[i], Ns[i])) * Ks[i] * (dirichletpsis[node2] + coords[2, node2] - psi[node1] - coords[2, node1]) * areasoverlengths[i])
+				NonlinearEquations.addterm(node1, hm(kr(psi[node1], alphas[i], Ns[i]), kr(dirichletpsis[node2], alphas[i], Ns[i])) * Ks[i] * (dirichletpsis[node2] + coords[2, node2] - psi[node1] - coords[2, node1]) * areasoverlengths[i])
 			end
 		end
 	end
