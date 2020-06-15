@@ -26,18 +26,24 @@ function regulargrid(mins, maxs, ns, dz)
 			end
 		end
 	end
-	return coords, neighbors, areasoverlengths, volumes
+	ρ = 997.0#kg/m^3
+	g = 9.81#m/s^2
+	α = 1e-8#Pa^-1 = s^2*m/kg -- pulled out of thin air, but wanting a contribution where the solid is more compressible than the water
+	porosity = 0.25#unitless
+	β = 45.8e-11#Pa^-1 = s^2*m/kg -- compressiblity of water is taken from http://hyperphysics.phy-astr.gsu.edu/hbase/Tables/compress.html
+	specificstorage = fill(ρ * g * (α + porosity * β), size(coords, 2))#ρg(α+nβ) where ρ is fluid density, g, is gravitational constant, α is aquifer compressiblity, n is porosity, β is fluid compressibility
+	return coords, neighbors, areasoverlengths, specificstorage, volumes
 end
 
 mins = [0, 0]
 maxs = [100, 60]
-#ns = [51, 31]
+ns = [51, 31]
 #ns = [75, 45]
-ns = [101, 61]
+#ns = [101, 61]
 #ns = [201, 121]
 #ns = [401, 241]
 #ns = [801, 481]
-coords, neighbors, areasoverlengths, volumes = regulargrid(mins, maxs, ns, 1.0)
+coords, neighbors, areasoverlengths, specificstorage, volumes = regulargrid(mins, maxs, ns, 1.0)
 params = Dict(:clay=>(1.58e-4, 0.244, 1.09, 0.178947368), :claysilt=>(1e-2, 0.488, 1.37, 0.073913043))#(K, alpha, N, sr)
 inclay(x, z) = x < 65 && z > 25 && z < 30
 function setupparams(coords, neighbors)
