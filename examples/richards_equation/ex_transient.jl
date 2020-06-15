@@ -44,11 +44,11 @@ function jac(u, p, t)
 	return req_psi(u, Ks, neighbors, areasoverlengths, dirichletnodes, dirichletpsis, coords, alphas, Ns, Qs, specificstorage, volumes)
 end
 
-psi0 = -ones(size(coords, 2))
+psi0 = fill(-5.0, size(coords, 2))
 psi0[dirichletnodes] = dirichletpsis[dirichletnodes]
 p = [Ks; Qs]
 tspan = [0, 1e2]
 odef = ODEFunction(f; jac=jac)
 prob = ODEProblem(odef, psi0, tspan, p)
-soln = solve(prob, ImplicitEuler())
+@time soln = solve(prob, ImplicitEuler())
 plottransient(soln)
