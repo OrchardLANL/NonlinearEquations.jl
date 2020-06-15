@@ -1,5 +1,8 @@
 using Test
+using AbstractPlotting
 import Calculus
+using GLMakie; GLMakie.activate!()
+using MakieLayout
 import NonlinearEquations
 import Random
 import SparseArrays
@@ -19,6 +22,32 @@ function callback(psi, residuals, J, i)
 		println()
 		PyPlot.close(fig)
 	end
+end
+
+function plottransient(soln)
+	hend = soln(tspan[end])
+	scene, layout = layoutscene(resolution=(1200, 600))
+	t_slider = layout[3, 1:3] = LSlider(scene; range=range(0, tspan[end]; length=500), startvalue=0)
+	t_observable = lift(t->[t, t], t_slider.attributes[:value])
+	h_observable = lift(t->reshape(soln(t), ns[2], ns[1])', t_slider.attributes[:value])
+	residuals_observable = lift(t->reshape(f(soln(t), p, t), ns[2], ns[1])', t_slider.attributes[:value])
+	ax1 = layout[1, 1] = LAxis(scene; title="Head")
+	ax2 = layout[1, 2] = LAxis(scene; title="Residuals")
+	xs = range(mins[1]; stop=maxs[1], length=ns[1])
+	ys = range(mins[2]; stop=maxs[2], length=ns[2])
+	heatmap!(ax1, xs, ys, h_observable; colorrange=extrema(hend))
+	heatmap!(ax2, xs, ys, residuals_observable, colorrange=extrema(hend))
+	for ax in [ax1, ax2]
+		xlims!(ax, mins[1], maxs[1])
+		ylims!(ax, mins[2], maxs[2])
+	end
+	cbar = layout[1, 3] = LColorbar(scene; limits=extrema(hend), width=30)
+	timeplot = layout[2, :] = LAxis(scene; title="time", xgridvisible=false, ygridvisible=false, yticklabelsvisible=false, yticksvisible=false)
+	timeplot.height=20
+	lines!(timeplot, t_observable, [0, 1], linewidth=5)
+	ylims!(timeplot, 0, 1)
+	xlims!(timeplot, 0, tspan[end])
+	display(scene)
 end
 
 function i2i1i2(i)
