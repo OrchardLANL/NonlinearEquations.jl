@@ -100,6 +100,35 @@ function callback(psi, residuals, J, i, saturation=saturation(psi, coords))
 	end
 end
 
+function animatetransient(soln)
+	hend = soln(tspan[end])
+	scene, layout = layoutscene(resolution=(600, 600))
+	t_observable = Node(0.0)
+	h_observable = lift(t->reshape(soln(t), ns[2], ns[1])', t_observable)
+	saturation_observable = lift(t->reshape(saturation(soln(t), coords), ns[2], ns[1])', t_observable)
+	ax1 = layout[1, 1] = LAxis(scene; title="Pressure Head")
+	ax2 = layout[2, 1] = LAxis(scene; title="Saturation")
+	xs = range(mins[1]; stop=maxs[1], length=ns[1])
+	ys = range(mins[2]; stop=maxs[2], length=ns[2])
+	heatmap!(ax1, xs, ys, h_observable; colorrange=extrema(hend))
+	heatmap!(ax2, xs, ys, saturation_observable, colorrange=(0, 1))
+	for ax in [ax1, ax2]
+		xlims!(ax, mins[1], maxs[1])
+		ylims!(ax, mins[2], maxs[2])
+	end
+	layout[1, 2] = LColorbar(scene; limits=extrema(hend), width=30)
+	layout[2, 2] = LColorbar(scene; limits=(0, 1), width=30)
+	#timeplot = layout[2, :] = LAxis(scene; title="time", xgridvisible=false, ygridvisible=false, yticklabelsvisible=false, yticksvisible=false)
+	#timeplot.height=20
+	#lines!(timeplot, t_observable, [0, 1], linewidth=5)
+	#ylims!(timeplot, 0, 1)
+	#xlims!(timeplot, 0, tspan[end])
+	#display(scene)
+	record(scene, "animation_$(ns[1]).mp4", 0:0.2:62; framerate=60) do t
+		t_observable[] = t
+	end
+end
+
 function plottransient(soln)
 	hend = soln(tspan[end])
 	scene, layout = layoutscene(resolution=(1200, 600))
