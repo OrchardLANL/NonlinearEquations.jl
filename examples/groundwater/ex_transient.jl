@@ -1,4 +1,4 @@
-using DiffEqSensitivity
+import DifferentiableBackwardEuler
 import NLsolve
 import NonlinearEquations
 using OrdinaryDiffEq
@@ -7,6 +7,7 @@ import Zygote
 
 include("utilities.jl")
 include("inputdeck.jl")
+include("ex.jl")
 
 @NonlinearEquations.equations exclude=(dirichletnodes, neighbors, areasoverlengths) function groundwater(h, Ks, neighbors, areasoverlengths, dirichletnodes, dirichleths, Qs, specificstorage, volumes)
 	NonlinearEquations.setnumequations(length(h))
@@ -32,25 +33,10 @@ groundwater_residuals(us, Ks) = groundwater_residuals(us, Ks, neighbors, areasov
 groundwater_h(us, Ks) = groundwater_h(us, Ks, neighbors, areasoverlengths, dirichletnodes, dirichleths, Qs, specificstorage, volumes)
 groundwater_Ks(us, Ks) = groundwater_Ks(us, Ks, neighbors, areasoverlengths, dirichletnodes, dirichleths, Qs, specificstorage, volumes)
 
-#=
-@Zygote.adjoint function groundwater_residuals(us, Ks)
-	residuals = groundwater_residuals(us, Ks)
-	back = delta->begin
-		retval = ((delta' * groundwater_h(us, Ks))', (delta' * groundwater_Ks(us, Ks))')
-		return retval
-	end
-	return residuals, back
-end
-=#
-
 function unpack(p)
 	@assert length(p) == length(neighbors)
 	Ks = p[1:length(neighbors)]
 	return Ks
-	#@assert length(p) == length(neighbors) + size(coords, 2)
-	#Ks = p[1:length(neighbors)]
-	#Qs = p[length(neighbors) + 1:end]
-	#return Ks, Qs
 end
 
 function f(u, p, t)
@@ -58,45 +44,27 @@ function f(u, p, t)
 	return groundwater_residuals(u, Ks)
 end
 
-@Zygote.adjoint f(u, p, t) = f(u, p, t), delta->(jac(u, p, t)' * delta, paramjac(u, p, t)' * delta, zeros(length(u)))
-
-function jac(u, p, t)
+function f_u(u, p, t)
 	Ks = unpack(p)
 	return groundwater_h(u, Ks, neighbors, areasoverlengths, dirichletnodes, dirichleths, Qs, specificstorage, volumes)
 end
 
-function paramjac(u, p, t)
+function f_p(u, p, t)
 	Ks = unpack(p)
 	return groundwater_Ks(u, Ks, neighbors, areasoverlengths, dirichletnodes, dirichleths, Qs, specificstorage, volumes)
 end
 
+f_t(u, p, t) = zeros(length(u))
+
 h0 = zeros(size(coords, 2))
 h0[dirichletnodes] = dirichleths[dirichletnodes]
 p = Ks
-tspan = [0, 1e1]
-odef = ODEFunction(f; jac=jac, jac_prototype=jac(h0, p, 0.0), paramjac=paramjac)
+tspan = [0, 1e4]
+odef = ODEFunction(f; jac=f_u, jac_prototype=f_u(h0, p, 0.0))
 prob = ODEProblem(odef, h0, tspan, p)
-soln = solve(prob, ImplicitEuler())
-#plottransient(soln)
-function g(p)
-	prob = ODEProblem(odef, h0, tspan, p)
-	#sensealg = InterpolatingAdjoint()
-	sensealg = QuadratureAdjoint()
-	#sensealg = TrackerAdjoint()
-	return sum(Array(solve(prob, ImplicitEuler(); u0=prob.u0, p=prob.p, sensealg=sensealg))[:, end])
-end
-#=
-print("function eval: ")
-@btime $g($p)
-print("zygote gradient: ")
-zg = @btime Zygote.gradient($g, $p)[1]
-=#
-g(p)
-t1 = @elapsed g(p)
-@show t1
-Zygote.gradient(g, p)
-t2 = @elapsed Zygote.gradient(g, p)[1]
-@show t2
-speedup = t1 * length(p) / t2
-@show speedup
-@show length(p)
+@time soln_diffeq = solve(prob, ImplicitEuler())
+@time soln_dbe = DifferentiableBackwardEuler.steps(h0, f, f_u, f_p, f_t, p, soln_diffeq.t; ftol=1e-12)
+sum((soln_diffeq[:, :] .- soln_dbe) .^ 2)
+g(p) = DifferentiableBackwardEuler.steps(h0, f, f_u, f_p, f_t, p, soln_diffeq.t; ftol=1e-12)[obsnode, end]
+@time dgdp_zygote = Zygote.gradient(g, p)[1]
+@test isapprox(dgdp_zygote, grad)#this checks the zygote gradient against the steady state gradient that doesn't use zygote
