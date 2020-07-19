@@ -73,6 +73,7 @@ f_t(u, p, t) = zeros(length(u))
 
 p = fvals
 h0 = ones(N - 2)
+print("forward run time:")
 @time h = DifferentiableBackwardEuler.steps(h0, f, f_u, f_p, f_t, p, ts; ftol=1e-12, method=:newton) * D#multiply by D to convert from h* to h
 h_vitaly = D .- DelimitedFiles.readdlm("vitaly_solution.dlm")
 
@@ -97,8 +98,10 @@ end
 for (i, j) = enumerate(1:10:size(h, 2) - 1)
 	plot(h, j; filename="figs/frame_$(lpad(i, 4, '0')).png")
 end
+run(`ffmpeg -r 5 -f image2 -s 1920x1080 -i figs/frame_%04d.png -vcodec libx264 -crf 25  -pix_fmt yuv420p movie.mp4`)
 
 g(p) = DifferentiableBackwardEuler.steps(h0, f, f_u, f_p, f_t, p, ts; ftol=1e-12, method=:newton)[1, end] * D
+print("gradient time: ")
 @time grad_zygote = Zygote.gradient(g, p)[1]
 
 function checkgradientquickly(f, x0, gradf, n; delta::Float64=1e-8)
@@ -115,7 +118,7 @@ function checkgradientquickly(f, x0, gradf, n; delta::Float64=1e-8)
 		@show gradf[i]
 	end
 end
-#checkgradientquickly(g, p, grad_zygote, 5)
+checkgradientquickly(g, p, grad_zygote, 5)
 function checkresiduals()
 	fig, ax = PyPlot.subplots()
 	residuals = zeros(length(ts) - 1)
@@ -131,6 +134,8 @@ function checkresiduals()
 	ax.plot(residuals, alpha=0.5, label="dan")
 	ax.plot(residuals_vitaly, alpha=0.5, label="vitaly")
 	ax.legend()
+	ax.set_xlabel("iteration number")
+	ax.set_ylabel("sum of squared residuals")
 	display(fig)
 	println()
 	PyPlot.close(fig)
