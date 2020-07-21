@@ -63,9 +63,9 @@ tspan = [0, 1e4]
 odef = ODEFunction(f; jac=f_u, jac_prototype=f_u(h0, p, 0.0))
 prob = ODEProblem(odef, h0, tspan, p)
 @time soln_diffeq = solve(prob, ImplicitEuler())
-@time soln_dbe = DifferentiableBackwardEuler.steps(h0, f, f_u, f_p, f_t, p, soln_diffeq.t; ftol=1e-12)
+@time soln_dbe = DifferentiableBackwardEuler.steps(h0, f, f_u, f_p, f_t, p, soln_diffeq.t; ftol=1e-8)
 sum((soln_diffeq[:, :] .- soln_dbe) .^ 2)
 @test isapprox(soln_diffeq[:, :], soln_dbe)
-g(p) = DifferentiableBackwardEuler.steps(h0, f, f_u, f_p, f_t, p, soln_diffeq.t; ftol=1e-12)[obsnode, end]
+g(p) = DifferentiableBackwardEuler.steps(h0, f, f_u, f_p, f_t, p, soln_diffeq.t; ftol=1e-8)[obsnode, end]
 @time dgdp_zygote = Zygote.gradient(g, p)[1]
 @test isapprox(dgdp_zygote, grad)#this checks the zygote gradient against the steady state gradient that doesn't use zygote
