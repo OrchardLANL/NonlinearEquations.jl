@@ -1,10 +1,11 @@
 using Test
-using AbstractPlotting
+#using AbstractPlotting
 import Calculus
 import ForwardDiff
-using GLMakie; GLMakie.activate!()
-using MakieLayout
+#using GLMakie; GLMakie.activate!()
+#using MakieLayout
 import NonlinearEquations
+import PyPlot
 import Random
 import SparseArrays
 using StaticArrays
@@ -100,6 +101,7 @@ function callback(psi, residuals, J, i, saturation=saturation(psi, coords))
 	end
 end
 
+#=
 function animatetransient(soln)
 	hend = soln(tspan[end])
 	scene, layout = layoutscene(resolution=(600, 600))
@@ -155,6 +157,7 @@ function plottransient(soln)
 	xlims!(timeplot, 0, tspan[end])
 	display(scene)
 end
+=#
 
 function i2i1i2(i)
 	i2 = 1 + mod(i - 1, ns[2])

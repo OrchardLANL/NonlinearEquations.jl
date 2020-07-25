@@ -65,9 +65,10 @@ function solveforpsi(Ks, psi0=psi0; doplot=false, donewtonish=true)
 	else
 		psi1 = psi0
 	end
+	psi1 = soln_dbe[:, end]
 	#callback(psi1, res(psi1), jac(psi1), 0)
 	df = NLsolve.OnceDifferentiable(f!, j!, psi1, res(psi0), jac(psi0))
-	nls = NLsolve.nlsolve(df, psi1; show_trace=false, iterations=200, ftol=1e-15)
+	nls = NLsolve.nlsolve(df, psi1; show_trace=false, iterations=200, ftol=1e-12)
 	if doplot
 		callback(nls.zero, res(nls.zero), jac(nls.zero), 0)
 	end
