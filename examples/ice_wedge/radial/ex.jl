@@ -28,19 +28,23 @@ import Zygote
 	end
 end
 
-N = 1001
+N = 2001
+@assert mod(N - 1, 1000) == 0
 R = 10.0
 D = 0.5
 Kr = 0.5
 kappa = 0.1
+numtimesteps = 2000
+@assert mod(numtimesteps, 1000) == 0
 Sy = 0.3
-h_tr1 = map(x->1.0-0.7/300.0*x,1:300)
-h_tr2 = map(x->0.3*(1+sin(0.01*x)),0:699)
+h_tr1 = map(x->1.0-0.7/div(3 * numtimesteps, 10)*x, 1:(div(3 * numtimesteps, 10)))
+h_tr2 = map(x->0.3*(1+sin(0.01*x / div(numtimesteps, 1000))),0:(div(7 * numtimesteps, 10) - 1))
 h_tr = vcat(h_tr1, h_tr2)
-ts = collect(range(0, 100; length=1001)) * Kr * D / (Sy * R ^ 2)
+ts = collect(range(0, 100; length=numtimesteps + 1)) * Kr * D / (Sy * R ^ 2)
 fvals = zeros(length(ts))
-fvals[500:600] .= 0.25
-fvals .*= Kr * D / (Sy * R ^ 2) * (N - 1)#this factor of N - 1 isn't in the notes, but it seems like it is needed
+fvals[500 * div(numtimesteps, 1000):600 * div(numtimesteps, 1000)] .= 0.25
+fvals .*= Kr * D / (Sy * R ^ 2) * 1000
+fvals .*= 1.2#not sure where this factor of 1.2 comes from or really the factor of 1000 above
 function t2index(t)
 	if t > maximum(ts) || t < 0
 		error("crazy time: $t")
@@ -75,6 +79,7 @@ p = fvals
 h0 = ones(N - 2)
 print("forward run time:")
 @time h = DifferentiableBackwardEuler.steps(h0, f, f_u, f_p, f_t, p, ts; ftol=1e-12, method=:newton) * D#multiply by D to convert from h* to h
+h = h[div(N - 1, 1000):div(N - 1, 1000):end, 1:div(numtimesteps, 1000):end]
 h_vitaly = D .- DelimitedFiles.readdlm("vitaly_solution.dlm")
 
 function plot(h, i; savefig=true, filename="result.png")
@@ -98,7 +103,7 @@ end
 for (i, j) = enumerate(1:10:size(h, 2) - 1)
 	plot(h, j; filename="figs/frame_$(lpad(i, 4, '0')).png")
 end
-run(`ffmpeg -r 5 -f image2 -s 1920x1080 -i figs/frame_%04d.png -vcodec libx264 -crf 25  -pix_fmt yuv420p movie.mp4`)
+run(`ffmpeg -y -r 5 -f image2 -s 1920x1080 -i figs/frame_%04d.png -vcodec libx264 -crf 25  -pix_fmt yuv420p movie.mp4`)
 
 g(p) = DifferentiableBackwardEuler.steps(h0, f, f_u, f_p, f_t, p, ts; ftol=1e-12, method=:newton)[1, end] * D
 print("gradient time: ")
@@ -118,19 +123,19 @@ function checkgradientquickly(f, x0, gradf, n; delta::Float64=1e-8)
 		@show gradf[i]
 	end
 end
-checkgradientquickly(g, p, grad_zygote, 5)
+checkgradientquickly(g, p, grad_zygote, 2)
 function checkresiduals()
 	fig, ax = PyPlot.subplots()
 	residuals = zeros(length(ts) - 1)
 	residuals_vitaly = zeros(length(ts) - 1)
-	for i = 2:length(ts)
+	for i = 2:1001
 		deltah = ts[i] - ts[i - 1]
 		residuals[i - 1] = sum((h[:, i] - h[:, i - 1] - deltah * f(h[:, i], p, ts[i])) .^ 2)
 		residuals_vitaly[i - 1] = sum((h_vitaly[2:end - 1, i] - h_vitaly[2:end - 1, i - 1] - deltah * f(h_vitaly[2:end - 1, i], p, ts[i])) .^ 2)
 	end
 	i_worst = findmax(abs.(residuals .- residuals_vitaly))[2]
-	@show ts[i_worst], fvals[i_worst]
-	@show ts[i_worst - 1], fvals[i_worst - 1]
+	#@show ts[i_worst], fvals[i_worst]
+	#@show ts[i_worst - 1], fvals[i_worst - 1]
 	ax.plot(residuals, alpha=0.5, label="dan")
 	ax.plot(residuals_vitaly, alpha=0.5, label="vitaly")
 	ax.legend()
@@ -140,4 +145,6 @@ function checkresiduals()
 	println()
 	PyPlot.close(fig)
 end
-checkresiduals()
+if N == 1001#this only works if N = 1001
+	checkresiduals()
+end
