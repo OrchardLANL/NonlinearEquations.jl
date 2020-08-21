@@ -18,8 +18,6 @@ import Zygote
 			#the equation for i = 2 has h[i - 1] = h[1] = h[2] (equation 16), so h[i] - h[i - 1] = 0, so that term goes away
 			NonlinearEquations.addterm(i - 1, (r_i_p_half * 0.5 * (h[j] + h[j + 1]) * (h[j + 1] - h[j]) / delta_r) / (r_i * delta_r) + fvals[time_index])
 		elseif i == N - 1
-			#the equation for i = N - 1 has h[i + 1] = h[N] = (h[N - 1] - delta_r * Bi * h_tr(t)) / (1 - delta_r * Bi) -- from equation 17
-			#NonlinearEquations.addterm(i - 1, ((r_i_p_half * 0.5 * (h[j] + (h[j] - delta_r * Bi * h_tr[time_index]) / (1 - delta_r * Bi)) * ((h[j] - delta_r * Bi * h_tr[time_index]) / (1 - delta_r * Bi) - h[j]) / delta_r) - (r_i_m_half * 0.5 * (h[j] + h[j - 1]) * (h[j] - h[j - 1]) / delta_r)) / (r_i * delta_r) + fvals[time_index])
 			#the equation for i = N - 1 has h[i + 1] = h[N] = (h[N - 1] + delta_r * Bi * h_tr(t)) / (1 + delta_r * Bi) -- from equation 18
 			NonlinearEquations.addterm(i - 1, ((r_i_p_half * 0.5 * (h[j] + ((h[j] + delta_r * Bi * h_tr[time_index]) / (1 + delta_r * Bi))) * (((h[j] + delta_r * Bi * h_tr[time_index]) / (1 + delta_r * Bi)) - h[j]) / delta_r) - (r_i_m_half * 0.5 * (h[j] + h[j - 1]) * (h[j] - h[j - 1]) / delta_r)) / (r_i * delta_r) + fvals[time_index])
 		else
@@ -28,13 +26,13 @@ import Zygote
 	end
 end
 
-N = 2001
+N = 1001
 @assert mod(N - 1, 1000) == 0
 R = 10.0
 D = 0.5
 Kr = 0.5
 kappa = 0.1
-numtimesteps = 2000
+numtimesteps = 1000
 @assert mod(numtimesteps, 1000) == 0
 Sy = 0.3
 h_tr1 = map(x->1.0-0.7/div(3 * numtimesteps, 10)*x, 1:(div(3 * numtimesteps, 10)))
@@ -42,9 +40,8 @@ h_tr2 = map(x->0.3*(1+sin(0.01*x / div(numtimesteps, 1000))),0:(div(7 * numtimes
 h_tr = vcat(h_tr1, h_tr2)
 ts = collect(range(0, 100; length=numtimesteps + 1)) * Kr * D / (Sy * R ^ 2)
 fvals = zeros(length(ts))
-fvals[500 * div(numtimesteps, 1000):600 * div(numtimesteps, 1000)] .= 0.25
-fvals .*= Kr * D / (Sy * R ^ 2) * 1000
-fvals .*= 1.2#not sure where this factor of 1.2 comes from or really the factor of 1000 above
+fvals[500 * div(numtimesteps, 1000):600 * div(numtimesteps, 1000)] .= 2e-3
+fvals .*= R ^ 2 / (Kr * D ^ 2)
 function t2index(t)
 	if t > maximum(ts) || t < 0
 		error("crazy time: $t")
@@ -80,7 +77,7 @@ h0 = ones(N - 2)
 print("forward run time:")
 @time h = DifferentiableBackwardEuler.steps(h0, f, f_u, f_p, f_t, p, ts; ftol=1e-12, method=:newton) * D#multiply by D to convert from h* to h
 h = h[div(N - 1, 1000):div(N - 1, 1000):end, 1:div(numtimesteps, 1000):end]
-h_vitaly = D .- DelimitedFiles.readdlm("vitaly_solution.dlm")
+h_vitaly = D .- DelimitedFiles.readdlm("vitaly_solution2.dlm")
 
 function plot(h, i; savefig=true, filename="result.png")
 	fig, ax = PyPlot.subplots()
@@ -105,6 +102,7 @@ for (i, j) = enumerate(1:10:size(h, 2) - 1)
 end
 run(`ffmpeg -y -r 5 -f image2 -s 1920x1080 -i figs/frame_%04d.png -vcodec libx264 -crf 25  -pix_fmt yuv420p movie.mp4`)
 
+#=
 g(p) = DifferentiableBackwardEuler.steps(h0, f, f_u, f_p, f_t, p, ts; ftol=1e-12, method=:newton)[1, end] * D
 print("gradient time: ")
 @time grad_zygote = Zygote.gradient(g, p)[1]
@@ -148,3 +146,4 @@ end
 if N == 1001#this only works if N = 1001
 	checkresiduals()
 end
+=#
