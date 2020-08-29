@@ -4,7 +4,7 @@ NonlinearEquations.jl: A tool for automatically differentiating systems of nonli
 Description
 -----------
 
-Nonlinear is a [Julia](http://julialang.org/) module that includes automatically differentiates systems of nonlinear equations. It is used in the [DPFEHM](https://github.com/OrchardLANL/DPFEHM.jl) subsurface flow simulator.
+NonlinearEquations.jl is a [Julia](http://julialang.org/) module that includes automatically differentiates systems of nonlinear equations. It is used in the [DPFEHM](https://github.com/OrchardLANL/DPFEHM.jl) subsurface flow simulator.
 
 The [examples](https://github.com/OrchardLANL/NonlinearEquations.jl/tree/master/examples) are a good place to get started to see how to use NonlinearEquations.
 
