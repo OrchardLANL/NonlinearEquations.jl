@@ -141,6 +141,7 @@ function equations(fundef::Expr, macroexpand_module, dont_differentiate_syms::Ar
 		end
 		push!(q_result.args, :($(esc(MacroTools.combinedef(dict)))))
 	end
+	#display(MacroTools.prettify(q_result))
 	return q_result
 end
 
