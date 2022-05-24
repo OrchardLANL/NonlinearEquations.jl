@@ -1,6 +1,6 @@
 module NonlinearEquations
 
-import Calculus
+include("Calculus.jl")
 import MacroTools
 import SparseArrays
 
@@ -78,8 +78,7 @@ function differentiatewithrefs(exorig, x::Symbol)
 	else
 		diffs = Calculus.differentiate(ex, diffsyms)
 	end
-	#diffs = map(diff->Calculus.simplify(replacesymswithrefs(diff, dict)), diffs)
-	diffs = map(diff->replacesymswithrefs(diff, dict), diffs)#TODO: get the simplify stuff working again. currently it breaks some precompilation thing. maybe implement a simplify function without using calculus or use sympy.jl or something. hopefully the compiler does some of the optimizations for now
+	diffs = map(diff->Calculus.simplify(replacesymswithrefs(diff, dict)), diffs)
 	return diffs, diffrefs
 end
 
