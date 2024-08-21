@@ -10,6 +10,21 @@ function codegen_addterm_residuals(equationnum, term)
 	end
 end
 
+function codegen_addterm_print_equation(equationnum, term)
+	return quote 
+        if ___equation_number___ == $equationnum
+            if ___is_first_term___
+                ___equation_string_values___ = string("{", $term, "}")
+                ___equation_string_symbols___ = string("{", $(string(term)), "}")
+                ___is_first_term___ = false
+            else
+                ___equation_string_values___ *= string(" + {", $term, "}")
+                ___equation_string_symbols___ *= string(" + {", $(string(term)), "}")
+            end
+        end
+	end
+end
+
 function codegen_addterm_inplacejacobian(equationnum, term, xsym)
 	if MacroTools.inexpr(term, xsym)
 		derivatives, refs = NonlinearEquations.differentiatewithrefs(term, xsym)
@@ -111,6 +126,23 @@ function equations(fundef::Expr, macroexpand_module, dont_differentiate_syms::Ar
 	q_result = quote
 		$(esc(q_residuals))
 	end
+	#generate the code for printing equations
+	pushfirst!(dict[:args], :___equation_number___)
+    body_print_equation = MacroTools.postwalk(x->replacenumequations(x, :()), original_body)
+    body_print_equation = MacroTools.postwalk(x->replaceaddterm(x, (eqnum, term)->codegen_addterm_print_equation(eqnum, term)), body_print_equation)
+    dict[:name] = Symbol(original_name, :_print_equation)
+    dict[:body] = quote
+        ___equation_string_values___ = ""
+        ___equation_string_symbols___ = ""
+        ___is_first_term___ = true
+        $body_print_equation
+        println(___equation_string_symbols___)
+        println(___equation_string_values___)
+        println("printed equatoin string")
+        return nothing
+    end
+    push!(q_result.args, :($(esc(MacroTools.combinedef(dict)))))
+    dict[:args] = dict[:args][2:end]
 	#generate the code for the jacobian
 	for arg in filter(x->!(x in dont_differentiate_syms), dict[:args])
 		arg_name = MacroTools.splitarg(arg)[1]
