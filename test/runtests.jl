@@ -1,5 +1,6 @@
 using Test
 import Calculus
+import ChainRulesCore
 import DSP
 import NonlinearEquations
 import Random

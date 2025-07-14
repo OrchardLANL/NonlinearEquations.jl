@@ -195,7 +195,7 @@ function equations(fundef::Expr, macroexpand_module, dont_differentiate_syms::Ar
                         push!(pullback_ex.args, :(d_$(name) = ChainRulesCore.NoTangent()))
                 end
         end
-        retvals = [:ChainRulesCore.NoTangent()]
+	retvals = Any[:(ChainRulesCore.NoTangent())]
         for name in original_arg_names
                 push!(retvals, Symbol(:d_, name))
         end
