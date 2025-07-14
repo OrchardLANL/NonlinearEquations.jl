@@ -13,16 +13,16 @@ end
 
 function codegen_addterm_print_equation(equationnum, term)
 	return quote 
-        if ___equation_number___ == $equationnum
-            if ___is_first_term___
-                ___equation_string_values___ = string("{", $term, "}")
-                ___equation_string_symbols___ = string("{", $(string(term)), "}")
-                ___is_first_term___ = false
-            else
-                ___equation_string_values___ *= string(" + {", $term, "}")
-                ___equation_string_symbols___ *= string(" + {", $(string(term)), "}")
-            end
-        end
+		if ___equation_number___ == $equationnum
+			if ___is_first_term___
+				___equation_string_values___ = string("{", $term, "}")
+				___equation_string_symbols___ = string("{", $(string(term)), "}")
+				___is_first_term___ = false
+			else
+				___equation_string_values___ *= string(" + {", $term, "}")
+				___equation_string_symbols___ *= string(" + {", $(string(term)), "}")
+			end
+		end
 	end
 end
 
@@ -112,14 +112,14 @@ macro equations(fundef)
 end
 
 function equations(fundef::Expr, macroexpand_module, dont_differentiate_syms::Array{Symbol, 1})
-        dict = MacroTools.splitdef(fundef)
-        original_args_list = copy(dict[:args])
-        original_kwargs_list = copy(dict[:kwargs])
+	dict = MacroTools.splitdef(fundef)
+	original_args_list = copy(dict[:args])
+	original_kwargs_list = copy(dict[:kwargs])
 	original_kwargs_names = [MacroTools.splitarg(kw)[1] for kw in original_kwargs_list ]
-        original_whereparams = get(dict, :whereparams, nothing)
-        original_arg_names = map(arg->MacroTools.splitarg(arg)[1], original_args_list)
-        diff_arg_names = [MacroTools.splitarg(a)[1] for a in filter(a->!(MacroTools.splitarg(a)[1] in dont_differentiate_syms), original_args_list)]
-        original_body = macroexpand(macroexpand_module, dict[:body])
+	original_whereparams = get(dict, :whereparams, nothing)
+	original_arg_names = map(arg->MacroTools.splitarg(arg)[1], original_args_list)
+	diff_arg_names = [MacroTools.splitarg(a)[1] for a in filter(a->!(MacroTools.splitarg(a)[1] in dont_differentiate_syms), original_args_list)]
+	original_body = macroexpand(macroexpand_module, dict[:body])
 	#generate the code for computing the residuals
 	body_residuals = MacroTools.postwalk(x->replacenumequations(x, :(residuals = zeros(numequations))), original_body)
 	body_residuals = MacroTools.postwalk(x->replaceaddterm(x, codegen_addterm_residuals), body_residuals)
@@ -135,21 +135,21 @@ function equations(fundef::Expr, macroexpand_module, dont_differentiate_syms::Ar
 	end
 	#generate the code for printing equations
 	pushfirst!(dict[:args], :___equation_number___)
-    body_print_equation = MacroTools.postwalk(x->replacenumequations(x, :()), original_body)
-    body_print_equation = MacroTools.postwalk(x->replaceaddterm(x, (eqnum, term)->codegen_addterm_print_equation(eqnum, term)), body_print_equation)
-    dict[:name] = Symbol(original_name, :_print_equation)
-    dict[:body] = quote
-        ___equation_string_values___ = ""
-        ___equation_string_symbols___ = ""
-        ___is_first_term___ = true
-        $body_print_equation
-        println(___equation_string_symbols___)
-        println(___equation_string_values___)
-        println("printed equatoin string")
-        return nothing
-    end
-    push!(q_result.args, :($(esc(MacroTools.combinedef(dict)))))
-    dict[:args] = dict[:args][2:end]
+	body_print_equation = MacroTools.postwalk(x->replacenumequations(x, :()), original_body)
+	body_print_equation = MacroTools.postwalk(x->replaceaddterm(x, (eqnum, term)->codegen_addterm_print_equation(eqnum, term)), body_print_equation)
+	dict[:name] = Symbol(original_name, :_print_equation)
+	dict[:body] = quote
+		___equation_string_values___ = ""
+		___equation_string_symbols___ = ""
+		___is_first_term___ = true
+		$body_print_equation
+		println(___equation_string_symbols___)
+		println(___equation_string_values___)
+		println("printed equatoin string")
+		return nothing
+	end
+	push!(q_result.args, :($(esc(MacroTools.combinedef(dict)))))
+	dict[:args] = dict[:args][2:end]
 	#generate the code for the jacobian
 	for arg in filter(x->!(x in dont_differentiate_syms), dict[:args])
 		arg_name = MacroTools.splitarg(arg)[1]
@@ -167,52 +167,52 @@ function equations(fundef::Expr, macroexpand_module, dont_differentiate_syms::Ar
 	end
 	#generate the in-place versions of the jacobian
 	pushfirst!(dict[:args], :___jacobian_storage___)
-        for arg in filter(x->!(x in dont_differentiate_syms), dict[:args])
-                arg_name = MacroTools.splitarg(arg)[1]
-                body_inplacejacobian = MacroTools.postwalk(x->replacenumequations(x, :()), original_body)
-                body_inplacejacobian = MacroTools.postwalk(x->replaceaddterm(x, (eqnum, term)->codegen_addterm_inplacejacobian(eqnum, term, arg_name)), body_inplacejacobian)
-                dict[:name] = Symbol(original_name, :_, arg_name, :!)
-                dict[:body] = quote
-                        fill!(SparseArrays.nonzeros(___jacobian_storage___), zero(eltype($arg)))
-                        $body_inplacejacobian
-                        return nothing
-                end
-                push!(q_result.args, :($(esc(MacroTools.combinedef(dict)))))
-        end
+	for arg in filter(x->!(x in dont_differentiate_syms), dict[:args])
+			arg_name = MacroTools.splitarg(arg)[1]
+			body_inplacejacobian = MacroTools.postwalk(x->replacenumequations(x, :()), original_body)
+			body_inplacejacobian = MacroTools.postwalk(x->replaceaddterm(x, (eqnum, term)->codegen_addterm_inplacejacobian(eqnum, term, arg_name)), body_inplacejacobian)
+			dict[:name] = Symbol(original_name, :_, arg_name, :!)
+			dict[:body] = quote
+					fill!(SparseArrays.nonzeros(___jacobian_storage___), zero(eltype($arg)))
+					$body_inplacejacobian
+					return nothing
+			end
+			push!(q_result.args, :($(esc(MacroTools.combinedef(dict)))))
+	end
 
-        #generate the ChainRulesCore rrule for the residuals
-        dict[:args] = [:(::typeof($(Symbol(original_name, :_residuals)))), original_args_list...]
-        dict[:kwargs] = original_kwargs_list
-        dict[:whereparams] = original_whereparams
-        dict[:name] = :(ChainRulesCore.rrule)
+	#generate the ChainRulesCore rrule for the residuals
+	dict[:args] = [:(::typeof($(Symbol(original_name, :_residuals)))), original_args_list...]
+	dict[:kwargs] = original_kwargs_list
+	dict[:whereparams] = original_whereparams
+	dict[:name] = :(ChainRulesCore.rrule)
 	call_kwargs_exprs = [Expr(:kw, name, name) for name in original_kwargs_names]
 	call_residuals = Expr(:call, Symbol(original_name, :_residuals), original_arg_names..., call_kwargs_exprs...)
-        pullback_ex = Expr(:block)
-        for name in original_arg_names
-                if name in diff_arg_names
+	pullback_ex = Expr(:block)
+	for name in original_arg_names
+		if name in diff_arg_names
 			jac_call = Expr(:call, Symbol(original_name, :_, name), original_arg_names..., call_kwargs_exprs...)
 			push!(pullback_ex.args, :($(Symbol(:d_, name)) = transpose($jac_call) * ȳ))
-                else
-                        push!(pullback_ex.args, :($(Symbol(:d_, name)) = ChainRulesCore.NoTangent()))
-                end
-        end
+			else
+				push!(pullback_ex.args, :($(Symbol(:d_, name)) = ChainRulesCore.NoTangent()))
+			end
+		end
 	retvals = Any[:(ChainRulesCore.NoTangent())]
-        for name in original_arg_names
-                push!(retvals, Symbol(:d_, name))
-        end
-        push!(retvals, :(ChainRulesCore.NoTangent()))
-        push!(pullback_ex.args, Expr(:return, Expr(:tuple, retvals...)))
+	for name in original_arg_names
+		push!(retvals, Symbol(:d_, name))
+	end
+	push!(retvals, :(ChainRulesCore.NoTangent()))
+	push!(pullback_ex.args, Expr(:return, Expr(:tuple, retvals...)))
 
-        dict[:body] = quote
-                y = $call_residuals
-                function pullback(ȳ)
-                        $pullback_ex
-                end
-                return y, pullback
-        end
-        push!(q_result.args, :($(esc(MacroTools.combinedef(dict)))))
-        #display(MacroTools.prettify(q_result))
-        return q_result
+	dict[:body] = quote
+		y = $call_residuals
+		function pullback(ȳ)
+			$pullback_ex
+		end
+		return y, pullback
+	end
+	push!(q_result.args, :($(esc(MacroTools.combinedef(dict)))))
+	#display(MacroTools.prettify(q_result))
+	return q_result
 end
 
 function escapesymbols(expr, symbols)

@@ -139,9 +139,9 @@ u_analytical = map(x->sin(x), collect(range(0, pi; length=n + 2))[2:end - 1])
 
 # Define a simple two-equation system to test differentiation via ChainRulesCore
 @NonlinearEquations.equations function simplesys(x, p)
-        NonlinearEquations.setnumequations(2)
-        NonlinearEquations.addterm(1, p[1] * x[1] + p[2] * x[2]^2)
-        NonlinearEquations.addterm(2, p[3] * x[1]^2 + p[4] * x[2])
+	NonlinearEquations.setnumequations(2)
+	NonlinearEquations.addterm(1, p[1] * x[1] + p[2] * x[2]^2)
+	NonlinearEquations.addterm(2, p[3] * x[1]^2 + p[4] * x[2])
 end
 
 x = randn(2)
@@ -171,8 +171,8 @@ d = pb(seed)
 
 # rrule for a system where parameters are excluded from differentiation
 @NonlinearEquations.equations exclude=(p,) function quadeq_no_p(x, p)
-        NonlinearEquations.setnumequations(1)
-        NonlinearEquations.addterm(1, p[1] * x[1]^2 + p[2] * x[1] + p[3])
+	NonlinearEquations.setnumequations(1)
+	NonlinearEquations.addterm(1, p[1] * x[1]^2 + p[2] * x[1] + p[3])
 end
 
 x = [randn()]
