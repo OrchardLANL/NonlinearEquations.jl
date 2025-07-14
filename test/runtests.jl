@@ -132,3 +132,55 @@ p = []
 u = NonlinearEquations.newton(x->nonlinearbvp_residuals(x, p, n), x->nonlinearbvp_u(x, p, n), zeros(n); numiters=100)
 u_analytical = map(x->sin(x), collect(range(0, pi; length=n + 2))[2:end - 1])
 @test u ≈ u_analytical
+
+# ------------------------------------------------------------------------------
+# rrule tests
+# ------------------------------------------------------------------------------
+
+# Define a simple two-equation system to test differentiation via ChainRulesCore
+@NonlinearEquations.equations function simplesys(x, p)
+        NonlinearEquations.setnumequations(2)
+        NonlinearEquations.addterm(1, p[1] * x[1] + p[2] * x[2]^2)
+        NonlinearEquations.addterm(2, p[3] * x[1]^2 + p[4] * x[2])
+end
+
+x = randn(2)
+p = randn(4)
+y, pb = ChainRulesCore.rrule(simplesys_residuals, x, p)
+@test y ≈ simplesys_residuals(x, p)
+
+seed = randn(2)
+d = pb(seed)
+@test d[1] === ChainRulesCore.NoTangent()
+@test d[end] === ChainRulesCore.NoTangent()
+@test d[2] ≈ transpose(simplesys_x(x, p)) * seed
+@test d[3] ≈ transpose(simplesys_p(x, p)) * seed
+
+# rrule with keyword arguments
+x = randn(1)
+p = [1.0, 2.0, 3.0]
+y, pb = ChainRulesCore.rrule(quadeq_residuals, x, p; asdf=2)
+@test y ≈ quadeq_residuals(x, p; asdf=2)
+
+seed = randn(1)
+d = pb(seed)
+@test d[1] === ChainRulesCore.NoTangent()
+@test d[end] === ChainRulesCore.NoTangent()
+@test d[2] ≈ transpose(quadeq_x(x, p; asdf=2)) * seed
+@test d[3] ≈ transpose(quadeq_p(x, p; asdf=2)) * seed
+
+# rrule for a system where parameters are excluded from differentiation
+@NonlinearEquations.equations exclude=(p,) function quadeq_no_p(x, p)
+        NonlinearEquations.setnumequations(1)
+        NonlinearEquations.addterm(1, p[1] * x[1]^2 + p[2] * x[1] + p[3])
+end
+
+x = [randn()]
+p = randn(3)
+y, pb = ChainRulesCore.rrule(quadeq_no_p_residuals, x, p)
+seed = randn(1)
+d = pb(seed)
+@test d[1] === ChainRulesCore.NoTangent()
+@test d[end] === ChainRulesCore.NoTangent()
+@test d[2] ≈ transpose(quadeq_no_p_x(x, p)) * seed
+@test d[3] === ChainRulesCore.NoTangent()
