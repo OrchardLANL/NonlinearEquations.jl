@@ -115,6 +115,7 @@ function equations(fundef::Expr, macroexpand_module, dont_differentiate_syms::Ar
         dict = MacroTools.splitdef(fundef)
         original_args_list = copy(dict[:args])
         original_kwargs_list = copy(dict[:kwargs])
+	original_kwargs_names = [MacroTools.splitarg(kw)[1] for kw in original_kwargs_list ]
         original_whereparams = get(dict, :whereparams, nothing)
         original_arg_names = map(arg->MacroTools.splitarg(arg)[1], original_args_list)
         diff_arg_names = [MacroTools.splitarg(a)[1] for a in filter(a->!(MacroTools.splitarg(a)[1] in dont_differentiate_syms), original_args_list)]
@@ -184,15 +185,15 @@ function equations(fundef::Expr, macroexpand_module, dont_differentiate_syms::Ar
         dict[:kwargs] = original_kwargs_list
         dict[:whereparams] = original_whereparams
         dict[:name] = :(ChainRulesCore.rrule)
-
-        call_residuals = Expr(:call, Symbol(original_name, :_residuals), original_arg_names..., original_kwargs_list)
+	call_kwargs_exprs = [Expr(:kw, name, name) for name in original_kwargs_names]
+	call_residuals = Expr(:call, Symbol(original_name, :_residuals), original_arg_names..., call_kwargs_exprs...)
         pullback_ex = Expr(:block)
         for name in original_arg_names
                 if name in diff_arg_names
-                        jac_call = Expr(:call, Symbol(original_name, :_, name), original_arg_names..., original_kwargs_list)
-                        push!(pullback_ex.args, :(d_$(name) = transpose($jac_call) * ȳ))
+			jac_call = Expr(:call, Symbol(original_name, :_, name), original_arg_names..., call_kwargs_exprs...)
+			push!(pullback_ex.args, :($(Symbol(:d_, name)) = transpose($jac_call) * ȳ))
                 else
-                        push!(pullback_ex.args, :(d_$(name) = ChainRulesCore.NoTangent()))
+                        push!(pullback_ex.args, :($(Symbol(:d_, name)) = ChainRulesCore.NoTangent()))
                 end
         end
 	retvals = Any[:(ChainRulesCore.NoTangent())]
